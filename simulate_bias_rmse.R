@@ -10,8 +10,8 @@ library(parallel)
 
 
 simulate_bias_rmse = function(file_name,
-                              use_box_cox_in_eta = FALSE,
-                              use_box_cox_before_eta = FALSE,
+                              use_box_cox_in_parametric = FALSE,
+                              use_box_cox_in_kernel = FALSE,
                               param_adjuster_function = function(mu){mu},
                               case = c("gaussian", "lognormal", "gamma"),
                               controls_params = list(param1 = 1, param2 = 1), #Params for cases (mean, std) for gaussian & lognormal, (shape, rate) for gamma 
@@ -25,7 +25,7 @@ simulate_bias_rmse = function(file_name,
   ret_json[["header"]] = paste("Simulation results for ", file_name)
 
   # Simulation params
-  MC = 1
+  MC = 1000
   AUCs = c(0.6, 0.75, 0.9)
   ns = c(20, 50, 100)
   t0s = c(0.2, 0.4, 0.8, 1)
@@ -78,16 +78,10 @@ simulate_bias_rmse = function(file_name,
           controls = sample_distribution(n, controls_params$param1, controls_params$param2)
           cases = sample_distribution(n, missing_param, cases_params$param2)
           
-          if(use_box_cox_before_eta){
-            transformed = apply_box_cox(controls, cases)
-            controls = transformed$transformed_x
-            cases = transformed$transformed_y
-          }
-          
-          parametric[i] = parametric_eta(controls, cases, t0, box_cox = use_box_cox_in_eta)
-          kernel_hscv[i] = kernel_eta(controls, cases, "hscv", t0, box_cox = use_box_cox_in_eta)
-          kernel_opt[i] = kernel_eta(controls, cases, "optimal", t0, box_cox = use_box_cox_in_eta)
-          kernel_iqr[i] = kernel_eta(controls, cases, "iqr", t0, box_cox = use_box_cox_in_eta)
+          parametric[i] = parametric_eta(controls, cases, t0, box_cox = use_box_cox_in_parametric)
+          kernel_hscv[i] = kernel_eta(controls, cases, "hscv", t0, box_cox = use_box_cox_in_kernel)
+          kernel_opt[i] = kernel_eta(controls, cases, "optimal", t0, box_cox = use_box_cox_in_kernel)
+          kernel_iqr[i] = kernel_eta(controls, cases, "iqr", t0, box_cox = use_box_cox_in_kernel)
         }
         
         result = list(
@@ -192,70 +186,70 @@ gaussian_configs = list(
 
 lognormal_configs = list(
   lognormal_1 = list(
-    file_name = "lognormal_1_box_cox_inside_eta",
+    file_name = "lognormal_1_box_cox_parametric",
     case = "lognormal",
     param_adjuster_function = get_mux_bisection,
-    use_box_cox_in_eta = TRUE,
+    use_box_cox_in_parametric = TRUE,
     controls_params = list(param1 = 0, param2 = 1),
     cases_params = list(param1 = 0, param2 = 0.5)
   ),
   lognormal_2 = list(
-    file_name = "lognormal_2_box_cox_inside_eta",
+    file_name = "lognormal_2_box_cox_parametric",
     case = "lognormal",
     param_adjuster_function = get_mux_bisection,
-    use_box_cox_in_eta = TRUE,
+    use_box_cox_in_parametric = TRUE,
     controls_params = list(param1 = 0, param2 = 1),
     cases_params = list(param1 = 0, param2 = 3/2)
   ),
   lognormal_3 = list(
-    file_name = "lognormal_3_box_cox_inside_eta",
+    file_name = "lognormal_3_box_cox_parametric",
     case = "lognormal",
     param_adjuster_function = get_mux_bisection,
-    use_box_cox_in_eta = TRUE,
+    use_box_cox_in_parametric = TRUE,
     controls_params = list(param1 = 0, param2 = 1),
     cases_params = list(param1 = 0, param2 = 0.2)
   ),
   lognormal_4 = list(
-    file_name = "lognormal_4_box_cox_inside_eta",
+    file_name = "lognormal_4_box_cox_parametric",
     case = "lognormal",
     param_adjuster_function = get_mux_bisection,
-    use_box_cox_in_eta = TRUE,
+    use_box_cox_in_parametric = TRUE,
     controls_params = list(param1 = 0, param2 = 1),
     cases_params = list(param1 = 0, param2 = 2)
   ),
   lognormal_1_bc = list(
-    file_name = "lognormal_1_box_cox_inside_eta_box_cox_before_eta",
+    file_name = "lognormal_1_box_cox_parametric_and_kernel",
     case = "lognormal",
     param_adjuster_function = get_mux_bisection,
-    use_box_cox_before_eta = TRUE,
-    use_box_cox_in_eta = TRUE,
+    use_box_cox_in_parametric = TRUE,
+    use_box_cox_in_kernel = TRUE,
     controls_params = list(param1 = 0, param2 = 1),
     cases_params = list(param1 = 0, param2 = 0.5)
   ),
   lognormal_2_bc = list(
-    file_name = "lognormal_2_box_cox_inside_eta_box_cox_before_eta",
+    file_name = "lognormal_2_box_cox_parametric_and_kernel",
     case = "lognormal",
     param_adjuster_function = get_mux_bisection,
-    use_box_cox_before_eta = TRUE,
-    use_box_cox_in_eta = TRUE,
+    use_box_cox_in_parametric = TRUE,
+    use_box_cox_in_kernel = TRUE,
     controls_params = list(param1 = 0, param2 = 1),
     cases_params = list(param1 = 0, param2 = 3/2)
   ),
   lognormal_3_bc = list(
-    file_name = "lognormal_3_box_cox_inside_eta_box_cox_before_eta",
+    file_name = "lognormal_3_box_cox_parametric_and_kernel",
     case = "lognormal",
     param_adjuster_function = get_mux_bisection,
-    use_box_cox_before_eta = TRUE,
-    use_box_cox_in_eta = TRUE,
+    use_box_cox_in_parametric = TRUE,
+    use_box_cox_in_kernel = TRUE,
     controls_params = list(param1 = 0, param2 = 1),
     cases_params = list(param1 = 0, param2 = 0.2)
   ),
   lognormal_4_bc = list(
-    file_name = "lognormal_4_box_cox_inside_eta_box_cox_before_eta",
+    file_name = "lognormal_4_box_cox_parametric_and_kernel",
     case = "lognormal",
     param_adjuster_function = get_mux_bisection,
-    use_box_cox_before_eta = TRUE,
-    use_box_cox_in_eta = TRUE,
+    use_box_cox_in_parametric = TRUE,
+    use_box_cox_in_kernel = TRUE,
     controls_params = list(param1 = 0, param2 = 1),
     cases_params = list(param1 = 0, param2 = 2)
   )
@@ -263,53 +257,53 @@ lognormal_configs = list(
 
 gamma_configs = list(
   gamma_1 = list(
-    file_name = "gamma_1_box_cox_inside_eta",
+    file_name = "gamma_1_box_cox_parametric",
     case = "gamma",
     param_adjuster_function = get_gamma_rate,
-    use_box_cox_in_eta = TRUE,
+    use_box_cox_in_parametric = TRUE,
     controls_params = list(param1 = 0.5, param2 = 0.5),
     cases_params = list(param1 = 0, param2 = 1)
   ),
   gamma_2 = list(
-    file_name = "gamma_2_box_cox_inside_eta",
+    file_name = "gamma_2_box_cox_parametric",
     case = "gamma",
     param_adjuster_function = get_gamma_rate,
-    use_box_cox_in_eta = TRUE,
+    use_box_cox_in_parametric = TRUE,
     controls_params = list(param1 = 0.5, param2 = 0.5),
     cases_params = list(param1 = 0, param2 = 4)
   ),
   gamma_3 = list(
-    file_name = "gamma_3_box_cox_inside_eta",
+    file_name = "gamma_3_box_cox_parametric",
     case = "gamma",
     param_adjuster_function = get_gamma_rate,
-    use_box_cox_in_eta = TRUE,
+    use_box_cox_in_parametric = TRUE,
     controls_params = list(param1 = 0.5, param2 = 0.5),
     cases_params = list(param1 = 0, param2 = 1/8)
   ),
   gamma_1_bc = list(
-    file_name = "gamma_1_box_cox_inside_eta_box_cox_before_eta",
+    file_name = "gamma_1_box_cox_parametric_and_kernel",
     case = "gamma",
     param_adjuster_function = get_gamma_rate,
-    use_box_cox_before_eta = TRUE,
-    use_box_cox_in_eta = TRUE,
+    use_box_cox_in_parametric = TRUE,
+    use_box_cox_in_kernel = TRUE,
     controls_params = list(param1 = 0.5, param2 = 0.5),
     cases_params = list(param1 = 0, param2 = 1)
   ),
   gamma_2_bc = list(
-    file_name = "gamma_2_box_cox_inside_eta_box_cox_before_eta",
+    file_name = "gamma_2_box_cox_parametric_and_kernel",
     case = "gamma",
     param_adjuster_function = get_gamma_rate,
-    use_box_cox_before_eta = TRUE,
-    use_box_cox_in_eta = TRUE,
+    use_box_cox_in_parametric = TRUE,
+    use_box_cox_in_kernel = TRUE,
     controls_params = list(param1 = 0.5, param2 = 0.5),
     cases_params = list(param1 = 0, param2 = 4)
   ),
   gamma_3_bc = list(
-    file_name = "gamma_3_box_cox_inside_eta_box_cox_before_eta",
+    file_name = "gamma_3_box_cox_parametric_and_kernel",
     case = "gamma",
     param_adjuster_function = get_gamma_rate,
-    use_box_cox_before_eta = TRUE,
-    use_box_cox_in_eta = TRUE,
+    use_box_cox_in_parametric = TRUE,
+    use_box_cox_in_kernel = TRUE,
     controls_params = list(param1 = 0.5, param2 = 0.5),
     cases_params = list(param1 = 0, param2 = 1/8)
   )
