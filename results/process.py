@@ -1,226 +1,130 @@
-import os
 import json
-from pathlib import Path
+import os
 
-def process_json_files(file_paths):
-    all_data = []
-    
-    for file_path in file_paths:
-        with open(file_path, 'r') as f:
+def process_multiple_json_files(json_files, output_file):
+    all_tables = []
+
+    for json_file in json_files:
+        print(json_file)
+        with open(json_file, 'r') as f:
             data = json.load(f)
-            # Extract filename without extension to use as scenario name
-            scenario_name = Path(file_path).stem
-            data['scenario_name'] = scenario_name
-            all_data.append(data)
-    
-    return all_data
 
-def create_latex_tables(all_data):
-    # Extract AUC values and t0 values from the first file to set up the structure
-    auc_values = []
-    t0_values = []
-    
-    for auc_key in all_data[0].keys():
-        if auc_key.startswith("AUC:"):
-            auc_values.append(auc_key)
-            # Extract t0 values from the first AUC
-            if not t0_values and auc_key != "header" and auc_key != "scenario_name":
-                for t0_key in all_data[0][auc_key].keys():
-                    if t0_key.startswith("t0:"):
-                        t0_values.append(t0_key)
-    
-    # Sort the values
-    auc_values.sort(key=lambda x: float(x.split(":")[1].strip()))
-    t0_values.sort(key=lambda x: float(x.split(":")[1].strip()))
-    
-    # Create bias table
-    bias_table = generate_table(all_data, auc_values, t0_values, "bias", "Bias")
-    
-    # Create RMSE table
-    rmse_table = generate_table(all_data, auc_values, t0_values, "rmse", "RMSE")
-    
-    # Combine tables
-    latex_output = bias_table + "\n\n" + rmse_table
-    
-    return latex_output
+        file_id = os.path.splitext(os.path.basename(json_file))[0]
+        auc_values = ["0.6", "0.75", "0.9"]
+        t0_values = sorted({
+            t0 for auc in data if auc.startswith("AUC") for t0 in data[auc] if t0.startswith("t0")
+        }, key=lambda x: float(x.split(": ")[1]))
 
-def generate_table(all_data, auc_values, t0_values, metric_type, metric_name):
-    # Define the methods to include
-    methods = ["parametric", "kernel_hscv", "kernel_opt"]
-    method_names = {
-        "parametric": r"$\hat{\eta}_{log}^{N}$",
-        "kernel_hscv": r"$\hat{\eta}_{log}^{K = g, h=csv}$",
-        "kernel_opt": r"$\hat{\eta}_{log}^{K = g, h = h*}$"
+        latex_bias = create_latex_table(data, auc_values, t0_values, "bias", file_id)
+        latex_rmse = create_latex_table(data, auc_values, t0_values, "rmse", file_id)
+
+        all_tables.extend([latex_bias, "", latex_rmse, ""])
+
+    with open(output_file, 'w') as f:
+        f.write("\n".join(all_tables))
+
+    print(f"Todas las tablas fueron escritas en {output_file}")
+
+def create_latex_table(data, auc_values, t0_values, metric_type, file_id):
+    sizes = ["50", "100"]
+    estimadores = ["parametric", "kernel_hscv", "kernel_opt", "kernel_iqr"]
+    nombres_est = {
+        "parametric": "$\\widehat{\\eta}_{p}^{N}$",
+        "kernel_hscv": "$\\widehat{\\eta}_{p}^{K_{hscv}}$",
+        "kernel_opt": "$\\widehat{\\eta}_{p}^{K_{h^*}}$",
+        "kernel_iqr": "$\\widehat{\\eta}_{p}^{K_{IQR}}$"
     }
-    
-    # Define sample sizes to include
-    sample_sizes = ["20", "50", "100"]
-    
-    # Start building the LaTeX table
-    table = r"\begin{table}[H]" + "\n"
-    table += r"\centering" + "\n"
-    table += r"\caption{Estimación de " + metric_name + r" para diferentes tamaños muestrales}" + "\n"
-    table += r"\setlength{\tabcolsep}{5pt} % Ajusta el espacio entre las columnas" + "\n"
-    
-    # Calculate number of columns for all t0 values and methods
-    num_methods = len(methods)
-    num_t0_values = len(t0_values)
-    total_data_columns = num_methods * num_t0_values
-    
-    # Define the table format
-    table += r"\begin{tabularx}{0.95\textwidth}{c c *{" + str(total_data_columns) + "}{>{\centering\\arraybackslash}X}}" + "\n"
-    table += r"\toprule" + "\n"
-    
-    # First row of headers - t0 values
-    table += r"$\eta_{log}$ & n"
+
+    tabla = []
+    tabla.append("\\begin{table}[H]")
+    tabla.append("\\centering")
+    tabla.append(f"\\caption{{Resultados de \\texttt{{{file_id}}} ({metric_type.upper()})}}")
+    tabla.append("\\vspace{1em}")
+    tabla.append(f"\\label{{tabla_{metric_type}_{file_id}}}")
+    tabla.append("\\renewcommand{\\arraystretch}{1.2}")
+    tabla.append("\\resizebox{\\textwidth}{!}{%")
+    tabla.append("\\begin{tabular}{c c *{3}{c} c *{3}{c}}")
+    tabla.append("\\toprule")
+    tabla.append("\\multicolumn{2}{c}{} & \\multicolumn{3}{c}{\\textbf{n = m = 50}} & & \\multicolumn{3}{c}{\\textbf{n = m = 100}} \\\\")
+    tabla.append("\\cmidrule(lr){3-5} \\cmidrule(lr){7-9}")
+    tabla.append("\\multicolumn{2}{c}{} & " + " & ".join([f"\\textbf{{AUC = {a}}}" for a in auc_values[:3]]) +
+                 " & & " + " & ".join([f"\\textbf{{AUC = {a}}}" for a in auc_values[:3]]) + " \\\\")
+    tabla.append("\\midrule")
+
     for t0 in t0_values:
-        t0_value = t0.split(":")[1].strip()
-        for _ in range(num_methods):
-            table += f" & $t_0 = {t0_value}$"
-    table += r" \\" + "\n"
-    
-    # Second row of headers - methods
-    table += r" & "
-    for _ in range(num_t0_values):
-        for method in methods:
-            table += f" & {method_names[method]}"
-    table += r" \\" + "\n"
-    
-    table += r"\midrule" + "\n"
-    
-    # Data rows grouped by AUC
-    for auc in auc_values:
-        auc_value = auc.split(":")[1].strip()
-        
-        # Get true_eta value for this AUC (using the first t0, assuming it's similar across t0s)
-        first_t0 = t0_values[0]
-        true_eta = "N/A"
-        for data in all_data:
-            if auc in data and first_t0 in data[auc]:
-                if "true_eta" in data[auc][first_t0]:
-                    true_eta = data[auc][first_t0]["true_eta"][0]
-                    break
-        
-        # First row - sample size 20
-        table += f" & {sample_sizes[0]}"
-        
-        # Add data for each t0 and method
-        for t0 in t0_values:
-            for method in methods:
-                # Average over all files for this configuration
-                metric_values = []
-                for data in all_data:
-                    if auc in data and t0 in data[auc]:
-                        size_key = f"size: {sample_sizes[0]}"
-                        if size_key in data[auc][t0]:
-                            if method in data[auc][t0][size_key]:
-                                if metric_type in data[auc][t0][size_key][method]:
-                                    metric_values.append(data[auc][t0][size_key][method][metric_type][0])
-                
-                if metric_values:
-                    avg_metric = sum(metric_values) / len(metric_values)
-                    table += f" & {avg_metric:.4f}"
-                else:
-                    table += " & -"
-        
-        table += r" \\" + "\n"
-        
-        # Second row - sample size 50
-        table += f"{true_eta} & {sample_sizes[1]}"
-        
-        # Add data for each t0 and method
-        for t0 in t0_values:
-            for method in methods:
-                # Average over all files for this configuration
-                metric_values = []
-                for data in all_data:
-                    if auc in data and t0 in data[auc]:
-                        size_key = f"size: {sample_sizes[1]}"
-                        if size_key in data[auc][t0]:
-                            if method in data[auc][t0][size_key]:
-                                if metric_type in data[auc][t0][size_key][method]:
-                                    metric_values.append(data[auc][t0][size_key][method][metric_type][0])
-                
-                if metric_values:
-                    avg_metric = sum(metric_values) / len(metric_values)
-                    table += f" & {avg_metric:.4f}"
-                else:
-                    table += " & -"
-        
-        table += r" \\" + "\n"
-        
-        # Third row - sample size 100
-        mu_d_placeholder = f"($\\mu_D = {auc_value}$)"
-        table += f"{mu_d_placeholder} & {sample_sizes[2]}"
-        
-        # Add data for each t0 and method
-        for t0 in t0_values:
-            for method in methods:
-                # Average over all files for this configuration
-                metric_values = []
-                for data in all_data:
-                    if auc in data and t0 in data[auc]:
-                        size_key = f"size: {sample_sizes[2]}"
-                        if size_key in data[auc][t0]:
-                            if method in data[auc][t0][size_key]:
-                                if metric_type in data[auc][t0][size_key][method]:
-                                    metric_values.append(data[auc][t0][size_key][method][metric_type][0])
-                
-                if metric_values:
-                    avg_metric = sum(metric_values) / len(metric_values)
-                    table += f" & {avg_metric:.4f}"
-                else:
-                    table += " & -"
-        
-        table += r" \\" + "\n"
-        
-        # Add midrule between AUC sections
-        table += r"\midrule" + "\n"
-    
-    # Close the table
-    table += r"\end{tabularx}" + "\n"
-    table += r"\label{table:" + metric_type + "}" + "\n"
-    table += r"\end{table}"
-    
-    return table
+        t0_val = t0.split(": ")[1]
+        tabla.append(f"\\textbf{{$t_0 = {t0_val}$}} & {nombres_est[estimadores[0]]}" + " & " +
+                     " & ".join([
+                         format_value(data, f"AUC: {auc}", t0, size, estimadores[0], metric_type)
+                         for size in sizes for auc in auc_values
+                     ][:3] + [""] + [
+                         format_value(data, f"AUC: {auc}", t0, size, estimadores[0], metric_type)
+                         for size in sizes for auc in auc_values
+                     ][3:]) + " \\\\")
+        for est in estimadores[1:]:
+            tabla.append(f" & {nombres_est[est]}" + " & " +
+                         " & ".join([
+                             format_value(data, f"AUC: {auc}", t0, size, est, metric_type)
+                             for size in sizes for auc in auc_values
+                         ][:3] + [""] + [
+                             format_value(data, f"AUC: {auc}", t0, size, est, metric_type)
+                             for size in sizes for auc in auc_values
+                         ][3:]) + " \\\\")
+        tabla.append("\\midrule")
+
+    tabla.append("\\bottomrule")
+    tabla.append("\\end{tabular}")
+    tabla.append("}")
+    tabla.append("\\end{table}")
+
+    return "\n".join(tabla)
+
+def format_value(data, auc_key, t0, size, est, metric_type):
+    try:
+        val = data[auc_key][t0][f"size: {size}"][est][metric_type][0]
+        if type(val) == str:
+            print( auc_key, t0, size, est, metric_type)
+            return "-NaN-"
+
+        return f"{val:.4f}"
+    except KeyError:
+        return "-"
 
 def main():
-    # Directory where the script is located
-    script_dir = Path(__file__).parent.absolute()
-    
-    # Buscar automáticamente todos los archivos JSON en el directorio
-    # json_files = list(script_dir.glob("*.json"))
-    
-    # Alternativamente, puedes especificar manualmente los archivos
-    json_files = [
-        script_dir / "normal_1.json",
-        script_dir / "normal_2.json",
-        script_dir / "normal_3.json",
-        # Agrega más archivos según sea necesario
-    ]
-    
-    # Make sure all files exist
-    valid_files = []
-    for file_path in json_files:
-        if file_path.exists():
-            valid_files.append(file_path)
-        else:
-            print(f"Warning: File {file_path} not found")
-    
-    # Process the files
-    if valid_files:
-        all_data = process_json_files(valid_files)
-        latex_tables = create_latex_tables(all_data)
+    os.chdir("/Users/Riki/Desktop/ucm/articulo/Simulciones/results/")
+
+    files = {
+        "normales" : ["normal_1.json", "normal_2.json", "normal_3.json"],
+        "lognormales_no_bc" : ["lognormal_1_box_cox_parametric.json",
+                               "lognormal_2_box_cox_parametric.json",
+                               "lognormal_3_box_cox_parametric.json",
+                               "lognormal_4_box_cox_parametric.json"],
+
+        "lognormales_si_bc" : [ "lognormal_1_box_cox_parametric_and_kernel.json",
+                                "lognormal_2_box_cox_parametric_and_kernel.json",
+                                "lognormal_3_box_cox_parametric_and_kernel.json",
+                                "lognormal_4_box_cox_parametric_and_kernel.json"],
+
+        "gamma_no_bc" :       ["gamma_1_box_cox_parametric.json",
+                               "gamma_2_box_cox_parametric.json",
+                               "gamma_3_box_cox_parametric.json"],
+
+        "gamma_si_bc" :      [  "gamma_1_box_cox_parametric_and_kernel.json",
+                                "gamma_2_box_cox_parametric_and_kernel.json",
+                                "gamma_3_box_cox_parametric_and_kernel.json"]
         
-        # Write output to file
-        output_file = script_dir / "latex_tables.txt"
-        with open(output_file, 'w') as f:
-            f.write(latex_tables)
-        
-        print(f"LaTeX tables have been written to {output_file}")
-        print(f"Processed {len(valid_files)} JSON files: {[f.name for f in valid_files]}")
-    else:
-        print("No valid files to process")
+    }
+
+    for key, value in files.items():
+        print(key)
+        process_multiple_json_files(value, key+".txt")
+
+
+
+
+    # json_files = ["normal_1.json", "normal_2.json", "normal_3.json"]  # Aquí defines tus archivos
+    # output_file = "metrics_tables.txt"
+    # process_multiple_json_files(json_files, output_file)
 
 if __name__ == "__main__":
     main()
