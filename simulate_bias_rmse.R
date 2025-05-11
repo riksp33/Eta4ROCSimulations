@@ -162,22 +162,28 @@ run_parallel_simulations = function(category_configs, max_cores = NULL) {
 
 gaussian_configs = list(
   normal_1 = list(
-    file_name = "normal_1",
+    file_name = "normal_1_box_cox_parametric_and_kernel",
     case = "gaussian",
+    use_box_cox_in_parametric = TRUE,
+    use_box_cox_in_kernel = TRUE,
     param_adjuster_function = get_mux_bisection,
     controls_params = list(param1 = 0, param2 = 1),
     cases_params = list(param1 = 0, param2 = 1)
   ),
   normal_2 = list(
-    file_name = "normal_2",
+    file_name = "normal_2_box_cox_parametric_and_kernel",
     case = "gaussian",
+    use_box_cox_in_parametric = TRUE,
+    use_box_cox_in_kernel = TRUE,
     param_adjuster_function = get_mux_bisection,
     controls_params = list(param1 = 0, param2 = 1),
     cases_params = list(param1 = 0, param2 = 1.4)
   ),
   normal_3 = list(
-    file_name = "normal_3",
+    file_name = "normal_3_box_cox_parametric_and_kernel",
     case = "gaussian",
+    use_box_cox_in_parametric = TRUE,
+    use_box_cox_in_kernel = TRUE,
     param_adjuster_function = get_mux_bisection,
     controls_params = list(param1 = 0, param2 = 1),
     cases_params = list(param1 = 0, param2 = 3)
@@ -312,152 +318,9 @@ gamma_configs = list(
 
 # Scenarios to simulate
 all_configs = list(
-  gaussian = gaussian_configs,
-  lognormal = lognormal_configs,
-  gamma = gamma_configs
+  gaussian = gaussian_configs
 )
 
-run_parallel_simulations(all_configs, max_cores = NULL)  # NULL 
 
 
-# 
-# # Gaussian samples
-# 
-# simulate_bias_rmse("normal_1",
-#                    case = "gaussian",
-#                    param_adjuster_function = get_mux_bisection,
-#                    controls_params = list(param1 = 0, param2 = 1),
-#                    cases_params = list(param1 = 0, param2 = 1))
-# 
-# simulate_bias_rmse("normal_2",
-#                    case = "gaussian",
-#                    param_adjuster_function = get_mux_bisection,
-#                    controls_params = list(param1 = 0, param2 = 1),
-#                    cases_params = list(param1 = 0, param2 = 1.4))
-# 
-# 
-# simulate_bias_rmse("normal_3",
-#                    case = "gaussian",
-#                    param_adjuster_function = get_mux_bisection,
-#                    controls_params = list(param1 = 0, param2 = 1),
-#                    cases_params = list(param1 = 0, param2 = 3))
-# 
-# # Lognormal samples
-# 
-# simulate_bias_rmse("lognormal_1_box_cox_inside_eta",
-#                    case = "lognormal",
-#                    param_adjuster_function = get_mux_bisection,
-#                    use_box_cox_in_eta = TRUE,
-#                    controls_params = list(param1 = 0, param2 = 1),
-#                    cases_params = list(param1 = 0, param2 = 0.5))
-# 
-# simulate_bias_rmse("lognormal_2_box_cox_inside_eta",
-#                    case = "lognormal",
-#                    param_adjuster_function = get_mux_bisection,
-#                    use_box_cox_in_eta = TRUE,
-#                    controls_params = list(param1 = 0, param2 = 1),
-#                    cases_params = list(param1 = 0, param2 = 3/2))
-# 
-# simulate_bias_rmse("lognormal_3_box_cox_inside_eta",
-#                    case = "lognormal",
-#                    param_adjuster_function = get_mux_bisection,
-#                    use_box_cox_in_eta = TRUE,
-#                    controls_params = list(param1 = 0, param2 = 1),
-#                    cases_params = list(param1 = 0, param2 = 0.2))
-# 
-# simulate_bias_rmse("lognormal_4_box_cox_inside_eta",
-#                    case = "lognormal",
-#                    param_adjuster_function = get_mux_bisection,
-#                    use_box_cox_in_eta = TRUE,
-#                    controls_params = list(param1 = 0, param2 = 1),
-#                    cases_params = list(param1 = 0, param2 = 2))
-# 
-# 
-# 
-# simulate_bias_rmse("lognormal_1_box_cox_inside_eta_box_cox_before_eta",
-#                    case = "lognormal",
-#                    param_adjuster_function = get_mux_bisection,
-#                    use_box_cox_before_eta = TRUE,
-#                    use_box_cox_in_eta = TRUE,
-#                    controls_params = list(param1 = 0, param2 = 1),
-#                    cases_params = list(param1 = 0, param2 = 0.5))
-# 
-# simulate_bias_rmse("lognormal_2_box_cox_inside_eta_box_cox_before_eta",
-#                    case = "lognormal",
-#                    param_adjuster_function = get_mux_bisection,
-#                    use_box_cox_before_eta = TRUE,
-#                    use_box_cox_in_eta = TRUE,
-#                    controls_params = list(param1 = 0, param2 = 1),
-#                    cases_params = list(param1 = 0, param2 = 3/2))
-# 
-# simulate_bias_rmse("lognormal_3_box_cox_inside_eta_box_cox_before_eta",
-#                    case = "lognormal",
-#                    param_adjuster_function = get_mux_bisection,
-#                    use_box_cox_before_eta = TRUE,
-#                    use_box_cox_in_eta = TRUE,
-#                    controls_params = list(param1 = 0, param2 = 1),
-#                    cases_params = list(param1 = 0, param2 = 0.2))
-# 
-# simulate_bias_rmse("lognormal_4_box_cox_inside_eta_box_cox_before_eta",
-#                    case = "lognormal",
-#                    param_adjuster_function = get_mux_bisection,
-#                    use_box_cox_before_eta = TRUE,
-#                    use_box_cox_in_eta = TRUE,
-#                    controls_params = list(param1 = 0, param2 = 1),
-#                    cases_params = list(param1 = 0, param2 = 2))
-# 
-# # Gamma samples
-# 
-# simulate_bias_rmse("gamma_1_box_cox_inside_eta",
-#                    case = "gamma",
-#                    param_adjuster_function = get_gamma_rate,
-#                    use_box_cox_in_eta = TRUE,
-#                    controls_params = list(param1 = 0.5, param2 = 0.5),
-#                    cases_params = list(param1 = 0, param2 = 1))
-# 
-# simulate_bias_rmse("gamma_2_box_cox_inside_eta",
-#                    case = "gamma",
-#                    param_adjuster_function = get_gamma_rate,
-#                    use_box_cox_in_eta = TRUE,
-#                    controls_params = list(param1 = 0.5, param2 = 0.5),
-#                    cases_params = list(param1 = 0, param2 = 4))
-# 
-# simulate_bias_rmse("gamma_3_box_cox_inside_eta",
-#                    case = "gamma",
-#                    param_adjuster_function = get_gamma_rate,
-#                    use_box_cox_in_eta = TRUE,
-#                    controls_params = list(param1 = 0.5, param2 = 0.5),
-#                    cases_params = list(param1 = 0, param2 = 1/8))
-# 
-# simulate_bias_rmse("gamma_1_box_cox_inside_eta_box_cox_before_eta",
-#                    case = "gamma",
-#                    param_adjuster_function = get_gamma_rate,
-#                    use_box_cox_before_eta = TRUE,
-#                    use_box_cox_in_eta = TRUE,
-#                    controls_params = list(param1 = 0.5, param2 = 0.5),
-#                    cases_params = list(param1 = 0, param2 = 1))
-# 
-# simulate_bias_rmse("gamma_2_box_cox_inside_eta_box_cox_before_eta",
-#                    case = "gamma",
-#                    param_adjuster_function = get_gamma_rate,
-#                    use_box_cox_before_eta = TRUE,
-#                    use_box_cox_in_eta = TRUE,
-#                    controls_params = list(param1 = 0.5, param2 = 0.5),
-#                    cases_params = list(param1 = 0, param2 = 4))
-# 
-# simulate_bias_rmse("gamma_3_box_cox_inside_eta_box_cox_before_eta",
-#                    case = "gamma",
-#                    param_adjuster_function = get_gamma_rate,
-#                    use_box_cox_before_eta = TRUE,
-#                    use_box_cox_in_eta = TRUE,
-#                    controls_params = list(param1 = 0.5, param2 = 0.5),
-#                    cases_params = list(param1 = 0, param2 = 1/8))
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-
-
+run_parallel_simulations(all_configs, max_cores = NULL)
