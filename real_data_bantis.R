@@ -6,7 +6,7 @@ library(Eta4ROC)
 
 get_confidence_interval = function(controls, cases, conf_level = 0.95, n_boot = 500) {
 
-    combined_sample = c(ontrols, cases)
+    combined_sample = c(controls, cases)
 
     auc = numeric(n_boot)
     youden = numeric(n_boot)
@@ -24,7 +24,7 @@ get_confidence_interval = function(controls, cases, conf_level = 0.95, n_boot = 
         cases_size = length(cases)
         bootstrap_sample = sample(combined_sample, replace = FALSE)
         bootstrap_controls = bootstrap_sample[1:controls_size]
-        bootstrap_cases = bootstrap_sample[controls_size: controls_size + cases_size]
+        bootstrap_cases = bootstrap_sample[controls_size: length(combined_sample)]
 
         auc[b_it] = max(
             calculate_auc_normal(bootstrap_cases, bootstrap_controls),
@@ -35,14 +35,14 @@ get_confidence_interval = function(controls, cases, conf_level = 0.95, n_boot = 
             calculate_youden_normal(bootstrap_controls, bootstrap_cases)
         )
 
-        parametric_eta_no_bc[b_it] = parametric_eta(bootstrap_controls, bootstrap_cases, t0, box_cox = FALSE)
-        parametric_eta_yes_bc[b_it] = parametric_eta(bootstrap_controls, bootstrap_cases, t0, box_cox = TRUE)
-        kernel_eta_hscv_no_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "hscv", t0, box_cox = FALSE)
-        kernel_eta_hscv_yes_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "hscv", t0, box_cox = TRUE)
-        kernel_eta_optim_no_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "optimal", t0, box_cox = FALSE)
-        kernel_eta_optim_yes_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "optimal", t0, box_cox = TRUE)
-        kernel_eta_iqr_no_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "iqr", t0, box_cox = FALSE)
-        kernel_eta_iqr_yes_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "iqr", t0, box_cox = TRUE)
+        parametric_eta_no_bc[b_it] = parametric_eta(bootstrap_controls, bootstrap_cases, 1, box_cox = FALSE)
+        parametric_eta_yes_bc[b_it] = parametric_eta(bootstrap_controls, bootstrap_cases, 1, box_cox = TRUE)
+        kernel_eta_hscv_no_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "hscv", 1, box_cox = FALSE)
+        kernel_eta_hscv_yes_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "hscv", 1, box_cox = TRUE)
+        kernel_eta_optim_no_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "optimal", 1, box_cox = FALSE)
+        kernel_eta_optim_yes_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "optimal", 1, box_cox = TRUE)
+        kernel_eta_iqr_no_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "iqr", 1, box_cox = FALSE)
+        kernel_eta_iqr_yes_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "iqr", 1, box_cox = TRUE)
     }
 
     original_auc = max(
@@ -53,14 +53,14 @@ get_confidence_interval = function(controls, cases, conf_level = 0.95, n_boot = 
         calculate_youden_normal(cases, controls),
         calculate_youden_normal(controls, cases)
     )
-    original_parametric_eta_no_bc = parametric_eta(controls, cases, t0, box_cox = FALSE)
-    original_parametric_eta_yes_bc = parametric_eta(controls, cases, t0, box_cox = TRUE)
-    original_kernel_eta_hscv_no_bc = kernel_eta(controls, cases, "hscv", t0, box_cox = FALSE)
-    original_kernel_eta_hscv_yes_bc = kernel_eta(controls, cases, "hscv", t0, box_cox = TRUE)
-    original_kernel_eta_optim_no_bc = kernel_eta(controls, cases, "optimal", t0, box_cox = FALSE)
-    original_kernel_eta_optim_yes_bc = kernel_eta(controls, cases, "optimal", t0, box_cox = TRUE)
-    original_kernel_eta_iqr_no_bc = kernel_eta(controls, cases, "iqr", t0, box_cox = FALSE)
-    original_kernel_eta_iqr_yes_bc = kernel_eta(controls, cases, "iqr", t0, box_cox = TRUE)
+    original_parametric_eta_no_bc = parametric_eta(controls, cases, 1, box_cox = FALSE)
+    original_parametric_eta_yes_bc = parametric_eta(controls, cases, 1, box_cox = TRUE)
+    original_kernel_eta_hscv_no_bc = kernel_eta(controls, cases, "hscv", 1, box_cox = FALSE)
+    original_kernel_eta_hscv_yes_bc = kernel_eta(controls, cases, "hscv", 1, box_cox = TRUE)
+    original_kernel_eta_optim_no_bc = kernel_eta(controls, cases, "optimal", 1, box_cox = FALSE)
+    original_kernel_eta_optim_yes_bc = kernel_eta(controls, cases, "optimal", 1, box_cox = TRUE)
+    original_kernel_eta_iqr_no_bc = kernel_eta(controls, cases, "iqr", 1, box_cox = FALSE)
+    original_kernel_eta_iqr_yes_bc = kernel_eta(controls, cases, "iqr", 1, box_cox = TRUE)
 
 
     pvalue_auc = sum(auc > original_auc) / n_boot
@@ -150,7 +150,7 @@ format_value <- function(x) {
 
 ## DATA 207039N
 ###################################
-data_207039N = read.table("data/real_data/207039N.txt", header = FALSE, sep = "", dec = ".")
+data_207039N = read.table("/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/53,53/data207039.txt", header = FALSE, sep = "", dec = ".")
 controls_207039N = data_207039N$V1[data_207039N$V2==0]
 cases_207039N = data_207039N$V1[data_207039N$V2==1]
 
@@ -162,14 +162,14 @@ youden_207039N_cases_controls = calculate_youden_normal(cases_207039N, controls_
 youden_207039N_controls_cases = calculate_youden_normal(controls_207039N, cases_207039N)
 youden_207039N = max(youden_207039N_cases_controls, youden_207039N_controls_cases)
 
-parametric_eta_no_bc_207039N = parametric_eta(controls_207039N, cases_207039N, t0, box_cox = FALSE)
-parametric_eta_yes_bc_207039N = parametric_eta(controls_207039N, cases_207039N, t0, box_cox = TRUE)
-kernel_eta_hscv_no_bc_207039N= kernel_eta(controls_207039N, cases_207039N, "hscv", t0, box_cox = FALSE)
-kernel_eta_hscv_yes_bc_207039N= kernel_eta(controls_207039N, cases_207039N, "hscv", t0, box_cox = TRUE)
-kernel_eta_optim_no_bc_207039N = kernel_eta(controls_207039N, cases_207039N, "optimal", t0, box_cox = FALSE)
-kernel_eta_optim_yes_bc_207039N = kernel_eta(controls_207039N, cases_207039N, "optimal", t0, box_cox = TRUE)
-kernal_eta_iqr_no_bc_207039N = kernel_eta(controls_207039N, cases_207039N, "iqr", t0, box_cox = FALSE)
-kernal_eta_iqr_yes_bc_207039N = kernel_eta(controls_207039N, cases_207039N, "iqr", t0, box_cox = TRUE)
+parametric_eta_no_bc_207039N = parametric_eta(controls_207039N, cases_207039N, 1, box_cox = FALSE)
+parametric_eta_yes_bc_207039N = parametric_eta(controls_207039N, cases_207039N, 1, box_cox = TRUE)
+kernel_eta_hscv_no_bc_207039N= kernel_eta(controls_207039N, cases_207039N, "hscv", 1, box_cox = FALSE)
+kernel_eta_hscv_yes_bc_207039N= kernel_eta(controls_207039N, cases_207039N, "hscv", 1, box_cox = TRUE)
+kernel_eta_optim_no_bc_207039N = kernel_eta(controls_207039N, cases_207039N, "optimal", 1, box_cox = FALSE)
+kernel_eta_optim_yes_bc_207039N = kernel_eta(controls_207039N, cases_207039N, "optimal", 1, box_cox = TRUE)
+kernal_eta_iqr_no_bc_207039N = kernel_eta(controls_207039N, cases_207039N, "iqr", 1, box_cox = FALSE)
+kernal_eta_iqr_yes_bc_207039N = kernel_eta(controls_207039N, cases_207039N, "iqr", 1, box_cox = TRUE)
 
 
 lines <- c(
@@ -203,7 +203,7 @@ p_values_207039N = get_confidence_interval(controls_207039N, cases_207039N, conf
 
 ## DATA 209644N
 #########################################
-data_209644N = read.table("data/real_data/209644N.txt", header = FALSE, sep = "", dec = ".")
+data_209644N = read.table("/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/53,53/data209644.txt", header = FALSE, sep = "", dec = ".")
 controls_209644N = data_209644N$V1[data_209644N$V2==0]
 cases_209644N = data_209644N$V1[data_209644N$V2==1]
 shapiro.test(controls_209644N)
@@ -217,14 +217,14 @@ youden_209644N_cases_controls = calculate_youden_normal(cases_209644N, controls_
 youden_209644N_controls_cases = calculate_youden_normal(controls_209644N, cases_209644N)
 youden_209644N = max(youden_209644N_cases_controls, youden_209644N_controls_cases)
 
-parametric_eta_no_bc_209644N = parametric_eta(controls_209644N, cases_209644N, t0, box_cox = FALSE)
-parametric_eta_yes_bc_209644N = parametric_eta(controls_209644N, cases_209644N, t0, box_cox = TRUE)
-kernel_eta_hscv_no_bc_209644N= kernel_eta(controls_209644N, cases_209644N, "hscv", t0, box_cox = FALSE)
-kernel_eta_hscv_yes_bc_209644N= kernel_eta(controls_209644N, cases_209644N, "hscv", t0, box_cox = TRUE)
-kernel_eta_optim_no_bc_209644N = kernel_eta(controls_209644N, cases_209644N, "optimal", t0, box_cox = FALSE)
-kernel_eta_optim_yes_bc_209644N = kernel_eta(controls_209644N, cases_209644N, "optimal", t0, box_cox = TRUE)
-kernal_eta_iqr_no_bc_209644N = kernel_eta(controls_209644N, cases_209644N, "iqr", t0, box_cox = FALSE)
-kernal_eta_iqr_yes_bc_209644N = kernel_eta(controls_209644N, cases_209644N, "iqr", t0, box_cox = TRUE)
+parametric_eta_no_bc_209644N = parametric_eta(controls_209644N, cases_209644N, 1, box_cox = FALSE)
+parametric_eta_yes_bc_209644N = parametric_eta(controls_209644N, cases_209644N, 1, box_cox = TRUE)
+kernel_eta_hscv_no_bc_209644N= kernel_eta(controls_209644N, cases_209644N, "hscv", 1, box_cox = FALSE)
+kernel_eta_hscv_yes_bc_209644N= kernel_eta(controls_209644N, cases_209644N, "hscv", 1, box_cox = TRUE)
+kernel_eta_optim_no_bc_209644N = kernel_eta(controls_209644N, cases_209644N, "optimal", 1, box_cox = FALSE)
+kernel_eta_optim_yes_bc_209644N = kernel_eta(controls_209644N, cases_209644N, "optimal", 1, box_cox = TRUE)
+kernal_eta_iqr_no_bc_209644N = kernel_eta(controls_209644N, cases_209644N, "iqr", 1, box_cox = FALSE)
+kernal_eta_iqr_yes_bc_209644N = kernel_eta(controls_209644N, cases_209644N, "iqr", 1, box_cox = TRUE)
 
 lines <- c(
     "===== RESULTS for 209644N =====",
