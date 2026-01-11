@@ -1,6 +1,7 @@
 library(remotes)
 remotes::install_github("riksp33/Eta4ROC")
 library(Eta4ROC)
+library(jsonlite)
 
 print_test = function(name, observed, pvalue, null_desc) {
   cat(sprintf(
@@ -16,11 +17,40 @@ print_ci = function(name, observed, ci, conf_level) {
   ))
 }
 
+# Accumulator for all simulation results
+results_all <- list()
+
+# Helper to add results for a file path and file name
+add_results <- function(file_path, p_res, ci_res) {
+  fname <- basename(file_path)
+  p_list <- list()
+  ci_list <- list()
+
+  for (nm in names(p_res$observed)) {
+    p_list[[nm]] <- p_res$pvalues[[nm]]
+    ci_vals <- ci_res$ci[[nm]]
+    ci_list[[nm]] <- list(
+      value = ci_res$observed[[nm]],
+      lower = ci_vals[1],
+      upper = ci_vals[2]
+    )
+  }
+
+  if (is.null(results_all[[file_path]])) {
+    results_all[[file_path]] <<- list()
+  }
+
+  results_all[[file_path]][[fname]] <<- list(
+    p_values = p_list,
+    confidence_intervals = ci_list
+  )
+}
+
 
 ############################################
 ## Permutation tests
 ############################################
-get_p_values = function(controls, cases, n_perm = 500) {
+get_p_values = function(controls, cases, n_perm = 2) {
 
     set.seed(1)
 
@@ -93,7 +123,7 @@ get_p_values = function(controls, cases, n_perm = 500) {
 ############################################
 ## Bootstrap confidence intervals
 ############################################
-get_confidence_interval = function(controls, cases, conf_level = 0.95, n_boot = 500) {
+get_confidence_interval = function(controls, cases, conf_level = 0.95, n_boot = 2) {
 
   set.seed(1)
 
@@ -160,8 +190,30 @@ controls_207039N = data_207039N$V1[data_207039N$V2 == 0]
 cases_207039N = data_207039N$V1[data_207039N$V2 == 1]
 
 cat("\n========== DATASET 207039N ==========\n\n")
-get_p_values(controls_207039N, cases_207039N)
-get_confidence_interval(controls_207039N, cases_207039N)
+cat("/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/53,53/data207039.txt \n \n")
+file_path <- "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/53,53/data207039.txt"
+p_res <- get_p_values(controls_207039N, cases_207039N)
+ci_res <- get_confidence_interval(controls_207039N, cases_207039N)
+add_results(file_path, p_res, ci_res)
+
+
+############################################
+## DATASET 207039N
+############################################
+data_207039N = read.table(
+  "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/data207039.txt",
+  header = FALSE
+)
+
+controls_207039N = data_207039N$V1[data_207039N$V2 == 0]
+cases_207039N = data_207039N$V1[data_207039N$V2 == 1]
+
+cat("\n========== DATASET 207039N ==========\n\n")
+cat("/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/data207039.txt \n \n")
+file_path <- "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/data207039.txt"
+p_res <- get_p_values(controls_207039N, cases_207039N)
+ci_res <- get_confidence_interval(controls_207039N, cases_207039N)
+add_results(file_path, p_res, ci_res)
 
 
 ############################################
@@ -176,5 +228,28 @@ controls_209644N = data_209644N$V1[data_209644N$V2 == 0]
 cases_209644N = data_209644N$V1[data_209644N$V2 == 1]
 
 cat("\n========== DATASET 209644N ==========\n\n")
-get_p_values(controls_209644N, cases_209644N)
-get_confidence_interval(controls_209644N, cases_209644N)
+file_path <- "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/53,53/data209644.txt"
+p_res <- get_p_values(controls_209644N, cases_209644N)
+ci_res <- get_confidence_interval(controls_209644N, cases_209644N)
+add_results(file_path, p_res, ci_res)
+
+############################################
+## DATASET 209644N
+############################################
+data_209644N = read.table(
+  "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/data209644.txt",
+  header = FALSE
+)
+
+controls_209644N = data_209644N$V1[data_209644N$V2 == 0]
+cases_209644N = data_209644N$V1[data_209644N$V2 == 1]
+
+cat("\n========== DATASET 209644N ==========\n\n")
+cat("/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/data209644.txt \n \n")
+file_path <- "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/data209644.txt"
+p_res <- get_p_values(controls_209644N, cases_209644N)
+ci_res <- get_confidence_interval(controls_209644N, cases_209644N)
+add_results(file_path, p_res, ci_res)
+
+# Write accumulated results to JSON file
+write_json(results_all, "results/simulations_all.json", pretty = TRUE, auto_unbox = TRUE)
