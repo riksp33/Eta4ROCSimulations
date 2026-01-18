@@ -7,6 +7,8 @@ using StatsBase
 using JSON
 using Random
 using LinearAlgebra
+using Base.Threads
+
 
 # Helpers for JSON diagnostics
 function stringify_keys(x)
@@ -779,7 +781,6 @@ end
 
 
 
-
 #########################
 # get_power translated
 #########################
@@ -866,7 +867,7 @@ function get_power(file_name::String;
                     youden_base[mc_it] = max(calculate_youden_normal(cases, controls), calculate_youden_normal(controls, cases))
 
                     # bootstrap
-                    for bc_it in 1:BootstrapSize
+                    @threads for bc_it in 1:BootstrapSize
                         combined_boot = sample(vcat(controls, cases), 2n; replace=true)
                         controls_b = combined_boot[1:n]
                         cases_b = combined_boot[n+1:2n]
@@ -980,211 +981,9 @@ gamma_configs = Dict(
 
 all_configs = Dict(:gaussian => gaussian_configs, :lognormal => lognormal_configs, :gamma => gamma_configs)
 
-
-
-#########################
-# get_power translated
-#########################
-
-function get_power2(file_name::String;
-                   use_box_cox_in_parametric::Bool = false,
-                   use_box_cox_in_kernel::Bool = false,
-                   param_adjuster_function = sum,
-                   case::String = "gaussian",
-                   controls_params = Dict(:param1=>1.0, :param2=>1.0),
-                   cases_params = Dict(:param1=>1.1, :param2=>1.1),
-                   MC::Int = 1000,
-                   BootstrapSize::Int = 500,
-                   alpha::Float64 = 0.05)
-
-    Random.seed!(1)
-
-    AUCs = [0.6, 0.75, 0.9]
-    ns = [20, 50, 100]
-    t0s = [0.2, 0.4, 0.8, 1.0]
-
-    # Sample generator
-    sample_distribution = nothing
-    if case == "gaussian"
-        sample_distribution = (n, p1, p2) -> rand(Normal(p1, p2), n)
-    elseif case == "lognormal"
-        sample_distribution = (n, p1, p2) -> rand(LogNormal(p1, p2), n)
-    elseif case == "gamma"
-        sample_distribution = (n, p1, p2) -> rand(Gamma(p1, 1.0 / p2), n)
-    else
-        error("Parameter 'case' must be 'gaussian', 'lognormal' or 'gamma'")
-    end
-
-    results_summary = Dict{String,Any}("header" => "Simulation results for $file_name")
-
-    mesh = collect(range(0.00001, 0.9999, length=10000))
-
-    for (auc_idx, auc) in enumerate(AUCs)
-        auc_list = Dict{String,Any}()
-
-        # obtain missing param (either provided per-AUC or computed via adjuster)
-        test_sample = sample_distribution(100_000, controls_params[:param1], controls_params[:param2])
-        if haskey(cases_params, :param1) && isa(cases_params[:param1], AbstractVector)
-            missing_param = cases_params[:param1][auc_idx]
-        else
-            error("no missing param")
-        end
-
-        for t0 in t0s
-            t0_list = Dict{String,Any}()
-
-            for n in ns
-
-                parametric_base = Vector{Float64}(undef, MC)
-                kernel_hscv_base = Vector{Float64}(undef, MC)
-                kernel_opt_base = Vector{Float64}(undef, MC)
-                kernel_iqr_base = Vector{Float64}(undef, MC)
-                auc_base = Vector{Float64}(undef, MC)
-                youden_base = Vector{Float64}(undef, MC)
-
-                parametric_boot = Array{Float64}(undef, BootstrapSize, MC)
-                kernel_hscv_boot = Array{Float64}(undef, BootstrapSize, MC)
-                kernel_opt_boot = Array{Float64}(undef, BootstrapSize, MC)
-                kernel_iqr_boot = Array{Float64}(undef, BootstrapSize, MC)
-                auc_boot = Array{Float64}(undef, BootstrapSize, MC)
-                youden_boot = Array{Float64}(undef, BootstrapSize, MC)
-
-                parametric_p = Vector{Float64}(undef, MC)
-                kernel_hscv_p = Vector{Float64}(undef, MC)
-                kernel_opt_p = Vector{Float64}(undef, MC)
-                kernel_iqr_p = Vector{Float64}(undef, MC)
-                auc_p = Vector{Float64}(undef, MC)
-                youden_p = Vector{Float64}(undef, MC)
-
-                for mc_it in 1:MC
-                    controls = sample_distribution(n, controls_params[:param1], controls_params[:param2])
-                    cases = sample_distribution(n, missing_param, cases_params[:param2])
-
-                    parametric_base[mc_it] = parametric_eta(controls, cases, use_box_cox_in_parametric, t0, mesh)
-                    kernel_hscv_base[mc_it] = kernel_eta(controls, cases; method="hscv", t0=t0, box_cox=use_box_cox_in_kernel)
-                    kernel_opt_base[mc_it] = kernel_eta(controls, cases; method="optimal", t0=t0, box_cox=use_box_cox_in_kernel)
-                    kernel_iqr_base[mc_it] = kernel_eta(controls, cases; method="iqr", t0=t0, box_cox=use_box_cox_in_kernel)
-                    auc_base[mc_it] = max(calculate_auc_normal(cases, controls), calculate_auc_normal(controls, cases))
-                    youden_base[mc_it] = max(calculate_youden_normal(cases, controls), calculate_youden_normal(controls, cases))
-
-                    # bootstrap
-                    for bc_it in 1:BootstrapSize
-                        combined_boot = sample(vcat(controls, cases), 2n; replace=true)
-                        controls_b = combined_boot[1:n]
-                        cases_b = combined_boot[n+1:2n]
-
-                        parametric_boot[bc_it, mc_it] = parametric_eta(controls_b, cases_b, use_box_cox_in_parametric, t0, mesh)
-                        kernel_hscv_boot[bc_it, mc_it] = kernel_eta(controls_b, cases_b; method="hscv", t0=t0, box_cox=use_box_cox_in_kernel)
-                        kernel_opt_boot[bc_it, mc_it] = kernel_eta(controls_b, cases_b; method="optimal", t0=t0, box_cox=use_box_cox_in_kernel)
-                        kernel_iqr_boot[bc_it, mc_it] = kernel_eta(controls_b, cases_b; method="iqr", t0=t0, box_cox=use_box_cox_in_kernel)
-                        auc_boot[bc_it, mc_it] = max(calculate_auc_normal(cases_b, controls_b), calculate_auc_normal(controls_b, cases_b))
-                        youden_boot[bc_it, mc_it] = max(calculate_youden_normal(cases_b, controls_b), calculate_youden_normal(controls_b, cases_b))
-                    end
-
-                    # p-values from bootstrap
-                    parametric_p[mc_it] = mean(parametric_boot[:, mc_it] .>= parametric_base[mc_it])
-                    kernel_hscv_p[mc_it] = mean(kernel_hscv_boot[:, mc_it] .>= kernel_hscv_base[mc_it])
-                    kernel_opt_p[mc_it] = mean(kernel_opt_boot[:, mc_it] .>= kernel_opt_base[mc_it])
-                    kernel_iqr_p[mc_it] = mean(kernel_iqr_boot[:, mc_it] .>= kernel_iqr_base[mc_it])
-                    auc_p[mc_it] = mean(auc_boot[:, mc_it] .>= auc_base[mc_it])
-                    youden_p[mc_it] = mean(youden_boot[:, mc_it] .>= youden_base[mc_it])
-                end
-
-                # summary metrics (allow mixed value types)
-                summary_result = Dict{String,Any}(
-                    "parametric" => Dict("power" => mean(parametric_p .< alpha)),
-                    "kernel_hscv" => Dict("power" => mean(kernel_hscv_p .< alpha)),
-                    "kernel_opt" => Dict("power" => mean(kernel_opt_p .< alpha)),
-                    "kernel_iqr" => Dict("power" => mean(kernel_iqr_p .< alpha)),
-                    "auc" => Dict("power" => mean(auc_p .< alpha)),
-                    "youden" => Dict("power" => mean(youden_p .< alpha))
-                )
-
-                # save detailed RDS-equivalent as JSON (compressed not applied)
-                dir_path = joinpath(pwd(), "results_powers_sim_julia")
-                isdir(dir_path) || mkpath(dir_path)
-                rds_path = joinpath(dir_path, string(file_name, "_n", n, "_t0", replace(string(t0), "."=>"_"), "_auc", replace(string(auc), "."=>"_"), ".json"))
-
-                # Convert bootstrap matrices to arrays of vectors for JSON compatibility
-                parametric_boot_json = [vec(parametric_boot[:, i]) for i in 1:size(parametric_boot, 2)]
-                kernel_hscv_boot_json = [vec(kernel_hscv_boot[:, i]) for i in 1:size(kernel_hscv_boot, 2)]
-                kernel_opt_boot_json = [vec(kernel_opt_boot[:, i]) for i in 1:size(kernel_opt_boot, 2)]
-                kernel_iqr_boot_json = [vec(kernel_iqr_boot[:, i]) for i in 1:size(kernel_iqr_boot, 2)]
-                auc_boot_json = [vec(auc_boot[:, i]) for i in 1:size(auc_boot, 2)]
-                youden_boot_json = [vec(youden_boot[:, i]) for i in 1:size(youden_boot, 2)]
-
-                detailed = Dict(
-                    "meta" => Dict("file"=>file_name, "n"=>n, "t0"=>t0, "auc"=>auc, "case"=>case, "true_eta"=>true_eta),
-                    "base" => Dict("parametric"=>collect(parametric_base), "kernel_hscv"=>collect(kernel_hscv_base), "kernel_opt"=>collect(kernel_opt_base), "kernel_iqr"=>collect(kernel_iqr_base), "auc"=>collect(auc_base), "youden"=>collect(youden_base)),
-                    "bootstrap" => Dict("parametric"=>parametric_boot_json, "kernel_hscv"=>kernel_hscv_boot_json, "kernel_opt"=>kernel_opt_boot_json, "kernel_iqr"=>kernel_iqr_boot_json, "auc"=>auc_boot_json, "youden"=>youden_boot_json),
-                    "p_values" => Dict("parametric"=>collect(parametric_p), "kernel_hscv"=>collect(kernel_hscv_p), "kernel_opt"=>collect(kernel_opt_p), "kernel_iqr"=>collect(kernel_iqr_p), "auc"=>collect(auc_p), "youden"=>collect(youden_p))
-                )
-
-                # Try to serialize; on failure write a types map for debugging
-                safe_detailed = stringify_keys(detailed)
-                try
-                    open(rds_path, "w") do io
-                        JSON.print(io, safe_detailed)
-                    end
-                catch e
-                    types_map = json_type_map(detailed)
-                    types_path = rds_path * ".types.json"
-                    open(types_path, "w") do io
-                        JSON.print(io, types_map)
-                    end
-                    println("JSON serialization failed for ", rds_path, ". Types map written to ", types_path)
-                    rethrow(e)
-                end
-
-                summary_result["rds"] = String(split(rds_path, "/") |> last)
-                t0_list[string("size:", n)] = summary_result
-            end
-            auc_list[string("t0:", t0)] = t0_list
-        end
-        results_summary[string("AUC:", auc)] = auc_list
-    end
-
-    # write summary JSON
-    json_path = joinpath(pwd(), "results_powers_sim_julia", string(file_name, "_summary.json"))
-    open(json_path, "w") do io
-        JSON.print(io, results_summary)
-    end
-
-    return (summary = json_path, detailed_dir = joinpath(pwd(), "results_powers_sim_julia"))
-end
-
-# Scenario definitions (only gaussian as in original)
-gaussian_configs = Dict(
-    :normal_1 => Dict(:file_name => "normal_1_box_cox_parametric_and_kernel", :case => "gaussian", :use_box_cox_in_parametric => true, :use_box_cox_in_kernel => true, :param_adjuster_function => sum, :controls_params => Dict(:param1=>0.0,:param2=>1.0), :cases_params => Dict(:param1=>[0.3515625, 0.94970703125, 1.81640625], :param2=>1.0)),
-    :normal_2 => Dict(:file_name => "normal_2_box_cox_parametric_and_kernel", :case => "gaussian", :use_box_cox_in_parametric => true, :use_box_cox_in_kernel => true, :param_adjuster_function => sum, :controls_params => Dict(:param1=>0.0,:param2=>1.0), :cases_params => Dict(:param1=>[0.4296875, 1.15234375, 2.20703125],:param2=>1.4)),
-    :normal_3 => Dict(:file_name => "normal_3_box_cox_parametric_and_kernel", :case => "gaussian", :use_box_cox_in_parametric => true, :use_box_cox_in_kernel => true, :param_adjuster_function => sum, :controls_params => Dict(:param1=>0.0,:param2=>1.0), :cases_params => Dict(:param1=>[0.80078125, 2.13623046875, 4.0625],:param2=>3.0))
-)
-
-lognormal_configs = Dict(
-    :lognormal_1 => Dict(:file_name => "lognormal_1_box_cox_parametric", :case => "lognormal", :param_adjuster_function => sum, :use_box_cox_in_parametric => true, :controls_params => Dict(:param1=>0.0,:param2=>1.0), :cases_params => Dict(:param1=>[1.4013671875, 2.0703125, 3.671875],:param2=>0.5)),
-    :lognormal_2 => Dict(:file_name => "lognormal_2_box_cox_parametric", :case => "lognormal", :param_adjuster_function => sum, :use_box_cox_in_parametric => true, :controls_params => Dict(:param1=>0.0,:param2=>1.0), :cases_params => Dict(:param1=>[1.806640625, 2.705078125, 4.3359375],:param2=>3/2)),
-    :lognormal_3 => Dict(:file_name => "lognormal_3_box_cox_parametric", :case => "lognormal", :param_adjuster_function => sum, :use_box_cox_in_parametric => true, :controls_params => Dict(:param1=>0.0,:param2=>1.0), :cases_params => Dict(:param1=>[1.30859375, 1.982421875, 3.6328125],:param2=>0.2)),
-    :lognormal_4 => Dict(:file_name => "lognormal_4_box_cox_parametric", :case => "lognormal", :param_adjuster_function => sum, :use_box_cox_in_parametric => true, :controls_params => Dict(:param1=>0.0,:param2=>1.0), :cases_params => Dict(:param1=>[1.982421875, 3.046875, 4.8828125],:param2=>2.0)),
-    :lognormal_1_bc => Dict(:file_name => "lognormal_1_box_cox_parametric_and_kernel", :case => "lognormal", :param_adjuster_function => sum, :use_box_cox_in_parametric => true, :use_box_cox_in_kernel => true, :controls_params => Dict(:param1=>0.0,:param2=>1.0), :cases_params => Dict(:param1=>[1.4013671875, 2.0703125, 3.671875],:param2=>0.5)),
-    :lognormal_2_bc => Dict(:file_name => "lognormal_2_box_cox_parametric_and_kernel", :case => "lognormal", :param_adjuster_function => sum, :use_box_cox_in_parametric => true, :use_box_cox_in_kernel => true, :controls_params => Dict(:param1=>0.0,:param2=>1.0), :cases_params => Dict(:param1=>[1.806640625, 2.705078125, 4.3359375],:param2=>3/2)),
-    :lognormal_3_bc => Dict(:file_name => "lognormal_3_box_cox_parametric_and_kernel", :case => "lognormal", :param_adjuster_function => sum, :use_box_cox_in_parametric => true, :use_box_cox_in_kernel => true, :controls_params => Dict(:param1=>0.0,:param2=>1.0), :cases_params => Dict(:param1=>[1.30859375, 1.982421875, 3.6328125],:param2=>0.2)),
-    :lognormal_4_bc => Dict(:file_name => "lognormal_4_box_cox_parametric_and_kernel", :case => "lognormal", :param_adjuster_function => sum, :use_box_cox_in_parametric => true, :use_box_cox_in_kernel => true, :controls_params => Dict(:param1=>0.0,:param2=>1.0), :cases_params => Dict(:param1=>[1.982421875, 3.046875, 4.8828125],:param2=>2.0)),
-)
-
-gamma_configs = Dict(
-    :gamma_1 => Dict(:file_name => "gamma_1_box_cox_parametric", :case => "gamma", :param_adjuster_function => sum, :use_box_cox_in_parametric => true, :controls_params => Dict(:param1=>0.5,:param2=>0.5), :cases_params => Dict(:param1=>[1.083984375, 1.845703125, 3.57421875],:param2=>1.0)),
-    :gamma_2 => Dict(:file_name => "gamma_2_box_cox_parametric", :case => "gamma", :param_adjuster_function => sum, :use_box_cox_in_parametric => true, :controls_params => Dict(:param1=>0.5,:param2=>0.5), :cases_params => Dict(:param1=>[3.251953125, 5.80078125, 11.8359375],:param2=>4.0)),
-    :gamma_3 => Dict(:file_name => "gamma_3_box_cox_parametric", :case => "gamma", :param_adjuster_function => sum, :use_box_cox_in_parametric => true, :controls_params => Dict(:param1=>0.5,:param2=>0.5), :cases_params => Dict(:param1=>[0.36346435546875, 0.574951171875, 1.025390625],:param2=>1/8)),
-    :gamma_1_bc => Dict(:file_name => "gamma_1_box_cox_parametric_and_kernel", :case => "gamma", :param_adjuster_function => sum, :use_box_cox_in_parametric => true, :use_box_cox_in_kernel => true, :controls_params => Dict(:param1=>0.5,:param2=>0.5), :cases_params => Dict(:param1=>[1.083984375, 1.845703125, 3.57421875],:param2=>1.0)),
-    :gamma_2_bc => Dict(:file_name => "gamma_2_box_cox_parametric_and_kernel", :case => "gamma", :param_adjuster_function => sum, :use_box_cox_in_parametric => true, :use_box_cox_in_kernel => true, :controls_params => Dict(:param1=>0.5,:param2=>0.5), :cases_params => Dict(:param1=>[3.251953125, 5.80078125, 11.8359375],:param2=>4.0)),
-    :gamma_3_bc => Dict(:file_name => "gamma_3_box_cox_parametric_and_kernel", :case => "gamma", :param_adjuster_function => sum, :use_box_cox_in_parametric => true, :use_box_cox_in_kernel => true, :controls_params => Dict(:param1=>0.5,:param2=>0.5), :cases_params => Dict(:param1=>[0.36346435546875, 0.574951171875, 1.025390625],:param2=>1/8)),
-)
-
-all_configs = Dict(:gaussian => gaussian_configs, :lognormal => lognormal_configs, :gamma => gamma_configs)
-
 gaussians = Dict(:gaussian => gaussian_configs)
 
-function simulate(category_configs::Dict; MC::Int=100, BootstrapSize::Int=50, alpha::Float64=0.05, verbose::Bool=true)
+function simulate(category_configs::Dict; MC::Int=10, BootstrapSize::Int=5, alpha::Float64=0.05, verbose::Bool=true)
     results = Dict{Any,Any}()
     for (category_name, configs) in category_configs
         if verbose
@@ -1221,44 +1020,4 @@ function simulate(category_configs::Dict; MC::Int=100, BootstrapSize::Int=50, al
     end
     return results
 end
-
-
-function simulate2(category_configs::Dict; MC::Int=100, BootstrapSize::Int=50, alpha::Float64=0.05, verbose::Bool=true)
-    results = Dict{Any,Any}()
-    for (category_name, configs) in category_configs
-        if verbose
-            println("Running scenarios for: ", category_name)
-        end
-        cat_results = Dict{Any,Any}()
-        for (cfg_name, cfg) in configs
-            try
-                if verbose
-                    println("  Running: ", cfg[:file_name])
-                end
-                res = get_power2(cfg[:file_name];
-                                use_box_cox_in_parametric = get(cfg, :use_box_cox_in_parametric, false),
-                                use_box_cox_in_kernel = get(cfg, :use_box_cox_in_kernel, false),
-                                param_adjuster_function = get(cfg, :param_adjuster_function, sum),
-                                case = get(cfg, :case, "gaussian"),
-                                controls_params = get(cfg, :controls_params, Dict(:param1=>1.0,:param2=>1.0)),
-                                cases_params = get(cfg, :cases_params, Dict(:param1=>1.1,:param2=>1.1)),
-                                MC = MC,
-                                BootstrapSize = BootstrapSize,
-                                alpha = alpha)
-                cat_results[cfg_name] = res
-                if verbose
-                    println("    Finished: ", cfg[:file_name], " -> ", res.summary)
-                end
-            catch e
-                cat_results[cfg_name] = Dict("error" => sprint(showerror, e))
-                if verbose
-                    println("    Error in: ", cfg[:file_name], " -> ", e)
-                end
-            end
-        end
-        results[category_name] = cat_results
-    end
-    return results
-end
-
 
