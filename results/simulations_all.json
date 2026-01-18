@@ -1,0 +1,274 @@
+{
+  "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/53,53/data207039.txt": {
+    "data207039.txt": {
+      "p_values": {
+        "auc": 0,
+        "youden": 0,
+        "eta_par_no_bc": 0,
+        "eta_par_yes_bc": 0,
+        "eta_hscv_no_bc": 0.004,
+        "eta_hscv_yes_bc": 0,
+        "eta_opt_no_bc": 0,
+        "eta_opt_yes_bc": 0,
+        "eta_iqr_no_bc": 0.014,
+        "eta_iqr_yes_bc": 0
+      },
+      "confidence_intervals": {
+        "auc": {
+          "value": 0.7226,
+          "lower": 0.6507,
+          "upper": 0.7932
+        },
+        "youden": {
+          "value": 0.5855,
+          "lower": 0.4781,
+          "upper": 0.6954
+        },
+        "eta_par_no_bc": {
+          "value": 0.8672,
+          "lower": 0.8606,
+          "upper": 0.8703
+        },
+        "eta_par_yes_bc": {
+          "value": 0.8581,
+          "lower": 0.8185,
+          "upper": 0.8699
+        },
+        "eta_hscv_no_bc": {
+          "value": 0.7069,
+          "lower": 0.5729,
+          "upper": 0.7604
+        },
+        "eta_hscv_yes_bc": {
+          "value": 0.7855,
+          "lower": 0.6741,
+          "upper": 0.7995
+        },
+        "eta_opt_no_bc": {
+          "value": 0.7455,
+          "lower": 0.7108,
+          "upper": 0.7754
+        },
+        "eta_opt_yes_bc": {
+          "value": 0.7823,
+          "lower": 0.7325,
+          "upper": 0.7957
+        },
+        "eta_iqr_no_bc": {
+          "value": 0.7101,
+          "lower": 0.6407,
+          "upper": 0.7614
+        },
+        "eta_iqr_yes_bc": {
+          "value": 0.7677,
+          "lower": 0.7107,
+          "upper": 0.7802
+        }
+      }
+    }
+  },
+  "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/data207039.txt": {
+    "data207039.txt": {
+      "p_values": {
+        "auc": 0,
+        "youden": 0,
+        "eta_par_no_bc": 0,
+        "eta_par_yes_bc": 0,
+        "eta_hscv_no_bc": 0.004,
+        "eta_hscv_yes_bc": 0,
+        "eta_opt_no_bc": 0,
+        "eta_opt_yes_bc": 0,
+        "eta_iqr_no_bc": 0.016,
+        "eta_iqr_yes_bc": 0
+      },
+      "confidence_intervals": {
+        "auc": {
+          "value": 0.727,
+          "lower": 0.6536,
+          "upper": 0.7953
+        },
+        "youden": {
+          "value": 0.5909,
+          "lower": 0.4886,
+          "upper": 0.6967
+        },
+        "eta_par_no_bc": {
+          "value": 0.8674,
+          "lower": 0.8602,
+          "upper": 0.8703
+        },
+        "eta_par_yes_bc": {
+          "value": 0.8593,
+          "lower": 0.8223,
+          "upper": 0.8703
+        },
+        "eta_hscv_no_bc": {
+          "value": 0.7131,
+          "lower": 0.5864,
+          "upper": 0.7604
+        },
+        "eta_hscv_yes_bc": {
+          "value": 0.7843,
+          "lower": 0.6612,
+          "upper": 0.7991
+        },
+        "eta_opt_no_bc": {
+          "value": 0.7477,
+          "lower": 0.7139,
+          "upper": 0.777
+        },
+        "eta_opt_yes_bc": {
+          "value": 0.7832,
+          "lower": 0.7387,
+          "upper": 0.7962
+        },
+        "eta_iqr_no_bc": {
+          "value": 0.7128,
+          "lower": 0.6393,
+          "upper": 0.7637
+        },
+        "eta_iqr_yes_bc": {
+          "value": 0.7661,
+          "lower": 0.7098,
+          "upper": 0.7817
+        }
+      }
+    }
+  },
+  "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/53,53/data209644.txt": {
+    "data209644.txt": {
+      "p_values": {
+        "auc": 0.004,
+        "youden": 0,
+        "eta_par_no_bc": 0,
+        "eta_par_yes_bc": 0,
+        "eta_hscv_no_bc": 0,
+        "eta_hscv_yes_bc": 0,
+        "eta_opt_no_bc": 0,
+        "eta_opt_yes_bc": 0,
+        "eta_iqr_no_bc": 0.002,
+        "eta_iqr_yes_bc": 0
+      },
+      "confidence_intervals": {
+        "auc": {
+          "value": 0.6861,
+          "lower": 0.5988,
+          "upper": 0.7657
+        },
+        "youden": {
+          "value": 0.4643,
+          "lower": 0.3373,
+          "upper": 0.588
+        },
+        "eta_par_no_bc": {
+          "value": 0.8614,
+          "lower": 0.8406,
+          "upper": 0.8698
+        },
+        "eta_par_yes_bc": {
+          "value": 0.8378,
+          "lower": 0.7638,
+          "upper": 0.8677
+        },
+        "eta_hscv_no_bc": {
+          "value": 0.7687,
+          "lower": 0.6277,
+          "upper": 0.8
+        },
+        "eta_hscv_yes_bc": {
+          "value": 0.7977,
+          "lower": 0.6663,
+          "upper": 0.8149
+        },
+        "eta_opt_no_bc": {
+          "value": 0.7758,
+          "lower": 0.7307,
+          "upper": 0.799
+        },
+        "eta_opt_yes_bc": {
+          "value": 0.7812,
+          "lower": 0.6243,
+          "upper": 0.8032
+        },
+        "eta_iqr_no_bc": {
+          "value": 0.761,
+          "lower": 0.686,
+          "upper": 0.7859
+        },
+        "eta_iqr_yes_bc": {
+          "value": 0.7835,
+          "lower": 0.717,
+          "upper": 0.7987
+        }
+      }
+    }
+  },
+  "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/data209644.txt": {
+    "data209644.txt": {
+      "p_values": {
+        "auc": 0.002,
+        "youden": 0,
+        "eta_par_no_bc": 0,
+        "eta_par_yes_bc": 0,
+        "eta_hscv_no_bc": 0,
+        "eta_hscv_yes_bc": 0,
+        "eta_opt_no_bc": 0,
+        "eta_opt_yes_bc": 0,
+        "eta_iqr_no_bc": 0,
+        "eta_iqr_yes_bc": 0
+      },
+      "confidence_intervals": {
+        "auc": {
+          "value": 0.6906,
+          "lower": 0.5989,
+          "upper": 0.7666
+        },
+        "youden": {
+          "value": 0.4703,
+          "lower": 0.3433,
+          "upper": 0.5858
+        },
+        "eta_par_no_bc": {
+          "value": 0.8619,
+          "lower": 0.8425,
+          "upper": 0.8698
+        },
+        "eta_par_yes_bc": {
+          "value": 0.8404,
+          "lower": 0.7665,
+          "upper": 0.8676
+        },
+        "eta_hscv_no_bc": {
+          "value": 0.7701,
+          "lower": 0.6229,
+          "upper": 0.8009
+        },
+        "eta_hscv_yes_bc": {
+          "value": 0.8027,
+          "lower": 0.659,
+          "upper": 0.8153
+        },
+        "eta_opt_no_bc": {
+          "value": 0.7774,
+          "lower": 0.7348,
+          "upper": 0.8003
+        },
+        "eta_opt_yes_bc": {
+          "value": 0.7829,
+          "lower": 0.6176,
+          "upper": 0.8048
+        },
+        "eta_iqr_no_bc": {
+          "value": 0.7629,
+          "lower": 0.6884,
+          "upper": 0.7894
+        },
+        "eta_iqr_yes_bc": {
+          "value": 0.7838,
+          "lower": 0.7122,
+          "upper": 0.7988
+        }
+      }
+    }
+  }
+}

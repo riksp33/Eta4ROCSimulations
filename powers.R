@@ -192,9 +192,9 @@ run_parallel_simulations = function(category_configs, max_cores = NULL) {
       library(jsonlite)
       library(here)
     })
-    clusterExport(cl, c("simulate_bias_rmse"))
+    clusterExport(cl, c("get_power"))
     results = parLapply(cl, configs, function(config) {
-      do.call(simulate_bias_rmse, config)
+      do.call(get_power, config)
     })
     
     stopCluster(cl)
@@ -369,4 +369,4 @@ all_configs = list(
 
 
 
-run_parallel_simulations(all_configs, max_cores = NULL)
+run_parallel_simulations(all_configs, max_cores = 3)
