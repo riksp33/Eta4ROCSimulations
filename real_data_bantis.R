@@ -1,255 +1,340 @@
-# Setup needed to install the Eta4ROC package from github
 library(remotes)
 remotes::install_github("riksp33/Eta4ROC")
 library(Eta4ROC)
+library(jsonlite)
+
+print_test = function(name, observed, pvalue, null_desc) {
+  cat(sprintf(
+    "%s\n  Observed statistic: %.6f\n  Null hypothesis: %s\n  Permutation p-value: %.6f\n\n",
+    name, observed, null_desc, pvalue
+  ))
+}
+
+print_ci = function(name, observed, ci, conf_level) {
+  cat(sprintf(
+    "%s\n  Observed statistic: %.6f\n  %.1f%% percentile CI: [%.6f, %.6f]\n\n",
+    name, observed, 100 * conf_level, ci[1], ci[2]
+  ))
+}
+
+# Accumulator for all simulation results
+results_all <- list()
+
+# Helper to add results for a file path and file name
+add_results <- function(file_path, p_res, ci_res) {
+  fname <- basename(file_path)
+  p_list <- list()
+  ci_list <- list()
+
+  for (nm in names(p_res$observed)) {
+    p_list[[nm]] <- p_res$pvalues[[nm]]
+    ci_vals <- ci_res$ci[[nm]]
+    ci_list[[nm]] <- list(
+      value = ci_res$observed[[nm]],
+      lower = ci_vals[1],
+      upper = ci_vals[2]
+    )
+  }
+
+  if (is.null(results_all[[file_path]])) {
+    results_all[[file_path]] <<- list()
+  }
+
+  results_all[[file_path]][[fname]] <<- list(
+    p_values = p_list,
+    confidence_intervals = ci_list
+  )
+}
 
 
-get_confidence_interval = function(controls, cases, conf_level = 0.95, n_boot = 500) {
+############################################
+## Permutation tests
+############################################
+get_p_values = function(controls, cases, n_perm = 500) {
 
-    combined_sample = c(controls, cases)
+    set.seed(1)
 
-    auc = numeric(n_boot)
-    youden = numeric(n_boot)
-    parametric_eta_no_bc = numeric(n_boot)
-    parametric_eta_yes_bc = numeric(n_boot)
-    kernel_eta_hscv_no_bc = numeric(n_boot)
-    kernel_eta_hscv_yes_bc = numeric(n_boot)
-    kernel_eta_optim_no_bc = numeric(n_boot)
-    kernel_eta_optim_yes_bc = numeric(n_boot)
-    kernel_eta_iqr_no_bc = numeric(n_boot)
-    kernel_eta_iqr_yes_bc = numeric(n_boot)
+    n_controls = length(controls)
+    n_cases = length(cases)
+    combined = c(controls, cases)
 
-    for (b_it in 1:n_boot){
-        controls_size = length(controls)
-        cases_size = length(cases)
-        bootstrap_sample = sample(combined_sample, replace = TRUE)
-        bootstrap_controls = bootstrap_sample[1:controls_size]
-        bootstrap_cases = bootstrap_sample[controls_size: length(combined_sample)]
+    transformed_original = apply_box_cox(controls, cases)
+    transformed_controls = transformed_original$transformed_x
+    transformed_cases = transformed_original$transformed_y
+    observed = list(
+    auc_par_no_bc = max(calculate_auc_normal(cases, controls), calculate_auc_normal(controls, cases)),
+    auc_par_yes_bc = max(calculate_auc_normal(transformed_cases, transformed_controls), calculate_auc_normal(transformed_controls, transformed_cases)),
+    auc_hscv_no_bc = max(calculate_auc_kernel(cases, controls, "hscv", box_cox = FALSE), calculate_auc_kernel(controls, cases, "hscv", box_cox = FALSE)),
+    auc_hscv_yes_bc = max(calculate_auc_kernel(cases, controls, "hscv", box_cox = TRUE), calculate_auc_kernel(controls, cases, "hscv", box_cox = TRUE)),
+    auc_opt_no_bc = max(calculate_auc_kernel(cases, controls, "optimal", box_cox = FALSE), calculate_auc_kernel(controls, cases, "optimal", box_cox = FALSE)),
+    auc_opt_yes_bc = max(calculate_auc_kernel(cases, controls, "optimal", box_cox = TRUE), calculate_auc_kernel(controls, cases, "optimal", box_cox = TRUE)),
+    auc_iqr_no_bc = max(calculate_auc_kernel(cases, controls, "iqr", box_cox = FALSE), calculate_auc_kernel(controls, cases, "iqr", box_cox = FALSE)),
+    auc_iqr_yes_bc = max(calculate_auc_kernel(cases, controls, "iqr", box_cox = TRUE), calculate_auc_kernel(controls, cases, "iqr", box_cox = TRUE)),
+    youden_par_no_bc = max(calculate_youden_normal(cases, controls), calculate_youden_normal(controls, cases)),
+    youden_par_yes_bc = max(calculate_youden_normal(transformed_cases, transformed_controls), calculate_youden_normal(transformed_controls, transformed_cases)),
+    youden_hscv_no_bc = max(calculate_youden_kernel(cases, controls, "hscv", box_cox = FALSE), calculate_youden_kernel(controls, cases, "hscv", box_cox = FALSE)),
+    youden_hscv_yes_bc = max(calculate_youden_kernel(cases, controls, "hscv", box_cox = TRUE), calculate_youden_kernel(controls, cases, "hscv", box_cox = TRUE)),
+    youden_opt_no_bc = max(calculate_youden_kernel(cases, controls, "optimal", box_cox = FALSE), calculate_youden_kernel(controls, cases, "optimal", box_cox = FALSE)),
+    youden_opt_yes_bc = max(calculate_youden_kernel(cases, controls, "optimal", box_cox = TRUE), calculate_youden_kernel(controls, cases, "optimal", box_cox = TRUE)),
+    youden_iqr_no_bc = max(calculate_youden_kernel(cases, controls, "iqr", box_cox = FALSE), calculate_youden_kernel(controls, cases, "iqr", box_cox = FALSE)),
+    youden_iqr_yes_bc = max(calculate_youden_kernel(cases, controls, "iqr", box_cox = TRUE), calculate_youden_kernel(controls, cases, "iqr", box_cox = TRUE)),
+    eta_par_no_bc = parametric_eta(controls, cases, 1, box_cox = FALSE),
+    eta_par_yes_bc = parametric_eta(controls, cases, 1, box_cox = TRUE),
+    eta_hscv_no_bc = kernel_eta(controls, cases, "hscv", 1, box_cox = FALSE),
+    eta_hscv_yes_bc = kernel_eta(controls, cases, "hscv", 1, box_cox = TRUE),
+    eta_opt_no_bc = kernel_eta(controls, cases, "optimal", 1, box_cox = FALSE),
+    eta_opt_yes_bc = kernel_eta(controls, cases, "optimal", 1, box_cox = TRUE),
+    eta_iqr_no_bc = kernel_eta(controls, cases, "iqr", 1, box_cox = FALSE),
+    eta_iqr_yes_bc = kernel_eta(controls, cases, "iqr", 1, box_cox = TRUE)
+    )
 
-        auc[b_it] = max(
-            calculate_auc_normal(bootstrap_cases, bootstrap_controls),
-            calculate_auc_normal(bootstrap_controls, bootstrap_cases)
-        )
-        youden[b_it] = max(
-            calculate_youden_normal(bootstrap_cases, bootstrap_controls),
-            calculate_youden_normal(bootstrap_controls, bootstrap_cases)
-        )
+    # Generates the empty dataframe of numerics(n_perm)
+    perm = lapply(observed, function(x) numeric(n_perm))
 
-        parametric_eta_no_bc[b_it] = parametric_eta(bootstrap_controls, bootstrap_cases, 1, box_cox = FALSE)
-        parametric_eta_yes_bc[b_it] = parametric_eta(bootstrap_controls, bootstrap_cases, 1, box_cox = TRUE)
-        kernel_eta_hscv_no_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "hscv", 1, box_cox = FALSE)
-        kernel_eta_hscv_yes_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "hscv", 1, box_cox = TRUE)
-        kernel_eta_optim_no_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "optimal", 1, box_cox = FALSE)
-        kernel_eta_optim_yes_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "optimal", 1, box_cox = TRUE)
-        kernel_eta_iqr_no_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "iqr", 1, box_cox = FALSE)
-        kernel_eta_iqr_yes_bc[b_it] = kernel_eta(bootstrap_controls, bootstrap_cases, "iqr", 1, box_cox = TRUE)
+    for (b in seq_len(n_perm)) {
+
+      perm_sample = sample(combined, replace = TRUE)
+      controls_p = perm_sample[1:n_controls]
+      cases_p = perm_sample[(n_controls + 1):(n_controls + n_cases)]
+
+      transformed = apply_box_cox(controls_p, cases_p)
+      transformed_controls_p = transformed$transformed_x
+      transformed_cases_p = transformed$transformed_y
+
+
+
+      perm$auc_par_yes_bc[b] = max(calculate_auc_normal(transformed_cases_p, transformed_controls_p), calculate_auc_normal(transformed_controls_p, transformed_cases_p))
+      perm$auc_par_no_bc[b] = max(calculate_auc_normal(controls_p, cases_p), calculate_auc_normal(controls_p, cases_p))
+      perm$auc_hscv_no_bc[b] = max(calculate_auc_kernel(cases_p, controls_p, "hscv", box_cox = FALSE), calculate_auc_kernel(controls_p, cases_p, "hscv", box_cox = FALSE))
+      perm$auc_hscv_yes_bc[b] = max(calculate_auc_kernel(cases_p, controls_p, "hscv", box_cox = TRUE), calculate_auc_kernel(controls_p, cases_p, "hscv", box_cox = TRUE))
+      perm$auc_opt_no_bc[b] = max(calculate_auc_kernel(cases_p, controls_p, "optimal", box_cox = FALSE), calculate_auc_kernel(controls_p, cases_p, "optimal", box_cox = FALSE))
+      perm$auc_opt_yes_bc[b] = max(calculate_auc_kernel(cases_p, controls_p, "optimal", box_cox = TRUE), calculate_auc_kernel(controls_p, cases_p, "optimal", box_cox = TRUE))
+      perm$auc_iqr_no_bc[b] = max(calculate_auc_kernel(cases_p, controls_p, "iqr", box_cox = FALSE), calculate_auc_kernel(controls_p, cases_p, "iqr", box_cox = FALSE))
+      perm$auc_iqr_yes_bc[b] = max(calculate_auc_kernel(cases_p, controls_p, "iqr", box_cox = TRUE), calculate_auc_kernel(controls_p, cases_p, "iqr", box_cox = TRUE))
+      perm$youden_par_yes_bc[b] = max(calculate_youden_normal(transformed_cases_p, transformed_controls_p), calculate_youden_normal(transformed_controls_p, transformed_cases_p))
+      perm$youden_par_no_bc[b] = max(calculate_youden_normal(controls_p, cases_p), calculate_youden_normal(controls_p, cases_p))
+      perm$youden_hscv_no_bc[b] = max(calculate_youden_kernel(cases_p, controls_p, "hscv", box_cox = FALSE), calculate_youden_kernel(controls_p, cases_p, "hscv", box_cox = FALSE))
+      perm$youden_hscv_yes_bc[b] = max(calculate_youden_kernel(cases_p, controls_p, "hscv", box_cox = TRUE), calculate_youden_kernel(controls_p, cases_p, "hscv", box_cox = TRUE))
+      perm$youden_opt_no_bc[b] = max(calculate_youden_kernel(cases_p, controls_p, "optimal", box_cox = FALSE), calculate_youden_kernel(controls_p, cases_p, "optimal", box_cox = FALSE))
+      perm$youden_opt_yes_bc[b] = max(calculate_youden_kernel(cases_p, controls_p, "optimal", box_cox = TRUE), calculate_youden_kernel(controls_p, cases_p, "optimal", box_cox = TRUE))
+      perm$youden_iqr_no_bc[b] = max(calculate_youden_kernel(cases_p, controls_p, "iqr", box_cox = FALSE), calculate_youden_kernel(controls_p, cases_p, "iqr", box_cox = FALSE))
+      perm$youden_iqr_yes_bc[b] = max(calculate_youden_kernel(cases_p, controls_p, "iqr", box_cox = TRUE), calculate_youden_kernel(controls_p, cases_p, "iqr", box_cox = TRUE))
+      perm$eta_par_no_bc[b] = parametric_eta(controls_p, cases_p, 1, box_cox = FALSE)
+      perm$eta_par_yes_bc[b] = parametric_eta(controls_p, cases_p, 1, box_cox = TRUE)
+      perm$eta_hscv_no_bc[b] = kernel_eta(controls_p, cases_p, "hscv", 1, box_cox = FALSE)
+      perm$eta_hscv_yes_bc[b] = kernel_eta(controls_p, cases_p, "hscv", 1, box_cox = TRUE)
+      perm$eta_opt_no_bc[b] = kernel_eta(controls_p, cases_p, "optimal", 1, box_cox = FALSE)
+      perm$eta_opt_yes_bc[b] = kernel_eta(controls_p, cases_p, "optimal", 1, box_cox = TRUE)
+      perm$eta_iqr_no_bc[b] = kernel_eta(controls_p, cases_p, "iqr", 1, box_cox = FALSE)
+      perm$eta_iqr_yes_bc[b] = kernel_eta(controls_p, cases_p, "iqr", 1, box_cox = TRUE)
     }
 
-    original_auc = max(
-        calculate_auc_normal(cases, controls),
-        calculate_auc_normal(controls, cases)
+    pvalues = mapply(
+    function(obs, perm_dist) {
+        sum(perm_dist >= obs) / n_perm
+    },
+    observed,
+    perm,
+    SIMPLIFY = FALSE
     )
-    original_youden = max(
-        calculate_youden_normal(cases, controls),
-        calculate_youden_normal(controls, cases)
-    )
-    original_parametric_eta_no_bc = parametric_eta(controls, cases, 1, box_cox = FALSE)
-    original_parametric_eta_yes_bc = parametric_eta(controls, cases, 1, box_cox = TRUE)
-    original_kernel_eta_hscv_no_bc = kernel_eta(controls, cases, "hscv", 1, box_cox = FALSE)
-    original_kernel_eta_hscv_yes_bc = kernel_eta(controls, cases, "hscv", 1, box_cox = TRUE)
-    original_kernel_eta_optim_no_bc = kernel_eta(controls, cases, "optimal", 1, box_cox = FALSE)
-    original_kernel_eta_optim_yes_bc = kernel_eta(controls, cases, "optimal", 1, box_cox = TRUE)
-    original_kernel_eta_iqr_no_bc = kernel_eta(controls, cases, "iqr", 1, box_cox = FALSE)
-    original_kernel_eta_iqr_yes_bc = kernel_eta(controls, cases, "iqr", 1, box_cox = TRUE)
 
+    cat("============================================\n")
+    cat(" PERMUTATION TESTS (NO DISCRIMINATION)\n")
+    cat("============================================\n\n")
 
-    pvalue_auc = sum(auc > original_auc) / n_boot
-    cat(pvalue_auc)
-    pvalue_youden = sum(youden > original_youden) / n_boot
-    pvalue_parametric_eta_no_bc = sum(parametric_eta_no_bc > original_parametric_eta_no_bc) / n_boot
-    pvalue_parametric_eta_yes_bc = sum(parametric_eta_yes_bc > original_parametric_eta_yes_bc) / n_boot
-    pvalue_kernel_eta_hscv_no_bc = sum(kernel_eta_hscv_no_bc > original_kernel_eta_hscv_no_bc) / n_boot
-    pvalue_kernel_eta_hscv_yes_bc = sum(kernel_eta_hscv_yes_bc > original_kernel_eta_hscv_yes_bc) / n_boot
-    pvalue_kernel_eta_optim_no_bc = sum(kernel_eta_optim_no_bc > original_kernel_eta_optim_no_bc) / n_boot
-    pvalue_kernel_eta_optim_yes_bc = sum(kernel_eta_optim_yes_bc > original_kernel_eta_optim_yes_bc) / n_boot
-    pvalue_kernel_eta_iqr_no_bc = sum(kernel_eta_iqr_no_bc > original_kernel_eta_iqr_no_bc) / n_boot
-    pvalue_kernel_eta_iqr_yes_bc = sum(kernel_eta_iqr_yes_bc > original_kernel_eta_iqr_yes_bc) / n_boot
+    print_test("AUC", observed$auc_gaussian, pvalues$auc_gaussian, "AUC = 0.5")
+    print_test("AUC (hscv, no BC)", observed$auc_hscv_no_bc, pvalues$auc_hscv_no_bc, "AUC = 0.5")
+    print_test("AUC (hscv, yes BC)", observed$auc_hscv_yes_bc, pvalues$auc_hscv_yes_bc, "AUC = 0.5")
+    print_test("AUC (optimal, no BC)", observed$auc_opt_no_bc, pvalues$auc_opt_no_bc, "AUC = 0.5")
+    print_test("AUC (optimal, yes BC)", observed$auc_opt_yes_bc, pvalues$auc_opt_yes_bc, "AUC = 0.5")
+    print_test("AUC (iqr, no BC)", observed$auc_iqr_no_bc, pvalues$auc_iqr_no_bc, "AUC = 0.5")
+    print_test("AUC (iqr, yes BC)", observed$auc_iqr_yes_bc, pvalues$auc_iqr_yes_bc, "AUC = 0.5")
+    print_test("Youden", observed$youden_gaussian, pvalues$youden_gaussian, "Youden = 0")
+    print_test("Youden (hscv, no BC)", observed$youden_hscv_no_bc, pvalues$youden_hscv_no_bc, "Youden = 0")
+    print_test("Youden (hscv, yes BC)", observed$youden_hscv_yes_bc, pvalues$youden_hscv_yes_bc, "Youden = 0")
+    print_test("Youden (optimal, no BC)", observed$youden_opt_no_bc, pvalues$youden_opt_no_bc, "Youden = 0")
+    print_test("Youden (optimal, yes BC)", observed$youden_opt_yes_bc, pvalues$youden_opt_yes_bc, "Youden = 0")
+    print_test("Youden (iqr, no BC)", observed$youden_iqr_no_bc, pvalues$youden_iqr_no_bc, "Youden = 0")
+    print_test("Youden (iqr, yes BC)", observed$youden_iqr_yes_bc, pvalues$youden_iqr_yes_bc, "Youden = 0")
+    print_test("Parametric ETA (no BC)", observed$eta_par_no_bc, pvalues$eta_par_no_bc, "ETA = 0")
+    print_test("Parametric ETA (yes BC)", observed$eta_par_yes_bc, pvalues$eta_par_yes_bc, "ETA = 0")
+    print_test("Kernel ETA hscv (no BC)", observed$eta_hscv_no_bc, pvalues$eta_hscv_no_bc, "ETA = 0")
+    print_test("Kernel ETA hscv (yes BC)", observed$eta_hscv_yes_bc, pvalues$eta_hscv_yes_bc, "ETA = 0")
+    print_test("Kernel ETA optimal (no BC)", observed$eta_opt_no_bc, pvalues$eta_opt_no_bc, "ETA = 0")
+    print_test("Kernel ETA optimal (yes BC)", observed$eta_opt_yes_bc, pvalues$eta_opt_yes_bc, "ETA = 0")
+    print_test("Kernel ETA iqr (no BC)", observed$eta_iqr_no_bc, pvalues$eta_iqr_no_bc, "ETA = 0")
+    print_test("Kernel ETA iqr (yes BC)", observed$eta_iqr_yes_bc, pvalues$eta_iqr_yes_bc, "ETA = 0")
 
-    cat(sprintf("pvalue auc: %f\n", pvalue_auc))
-    cat(sprintf("pvalue youden: %f\n", pvalue_youden))
-    cat(sprintf("pvalue parametric eta no bc: %f\n", pvalue_parametric_eta_no_bc))
-    cat(sprintf("pvalue parametric eta yes bc: %f\n", pvalue_parametric_eta_yes_bc))
-    cat(sprintf("pvalue kernel eta hscv no bc: %f\n", pvalue_kernel_eta_hscv_no_bc))
-    cat(sprintf("pvalue kernel eta hscv yes bc: %f\n", pvalue_kernel_eta_hscv_yes_bc))
-    cat(sprintf("pvalue kernel eta optim no bc: %f\n", pvalue_kernel_eta_optim_no_bc))
-    cat(sprintf("pvalue kernel eta optim yes bc: %f\n", pvalue_kernel_eta_optim_yes_bc))
-    cat(sprintf("pvalue kernel eta iqr no bc: %f\n", pvalue_kernel_eta_iqr_no_bc))
-    cat(sprintf("pvalue kernel eta iqr yes bc: %f\n", pvalue_kernel_eta_iqr_yes_bc))
-
-    lower_ci_auc = quantile(auc, probs = (1 - conf_level) / 2)
-    upper_ci_auc = quantile(auc, probs = 1 - (1 - conf_level) / 2)
-    cat(sprintf("AUC %f CI: [%f, %f ]\n", conf_level, lower_ci_auc, upper_ci_auc))
-    lower_ci_youden = quantile(youden, probs = (1 - conf_level) / 2)
-    upper_ci_youden = quantile(youden, probs = 1 - (1 - conf_level) / 2)
-    cat(sprintf("Youden %f CI: [%f, %f ]\n", conf_level, lower_ci_youden, upper_ci_youden))
-    lower_ci_parametric_eta_no_bc = quantile(parametric_eta_no_bc, probs = (1 - conf_level) / 2)
-    upper_ci_parametric_eta_no_bc = quantile(parametric_eta_no_bc, probs = 1 - (1 - conf_level) / 2)
-    cat(sprintf("Parametric ETA no BC %f CI: [%f, %f ]\n", conf_level, lower_ci_parametric_eta_no_bc, upper_ci_parametric_eta_no_bc))
-    lower_ci_parametric_eta_yes_bc = quantile(parametric_eta_yes_bc, probs = (1 - conf_level) / 2)
-    upper_ci_parametric_eta_yes_bc = quantile(parametric_eta_yes_bc, probs = 1 - (1 - conf_level) / 2)
-    cat(sprintf("Parametric ETA yes BC %f CI: [%f, %f ]\n", conf_level, lower_ci_parametric_eta_yes_bc, upper_ci_parametric_eta_yes_bc))
-    lower_ci_kernel_eta_hscv_no_bc = quantile(kernel_eta_hscv_no_bc, probs = (1 - conf_level) / 2)
-    upper_ci_kernel_eta_hscv_no_bc = quantile(kernel_eta_hscv_no_bc, probs = 1 - (1 - conf_level) / 2)
-    cat(sprintf("Kernel ETA hscv no BC %f CI: [%f, %f ]\n", conf_level, lower_ci_kernel_eta_hscv_no_bc, upper_ci_kernel_eta_hscv_no_bc))
-    lower_ci_kernel_eta_hscv_yes_bc = quantile(kernel_eta_hscv_yes_bc, probs = (1 - conf_level) / 2)
-    upper_ci_kernel_eta_hscv_yes_bc = quantile(kernel_eta_hscv_yes_bc, probs = 1 - (1 - conf_level) / 2)
-    cat(sprintf("Kernel ETA hscv yes BC %f CI: [%f, %f ]\n", conf_level, lower_ci_kernel_eta_hscv_yes_bc, upper_ci_kernel_eta_hscv_yes_bc))
-    lower_ci_kernel_eta_optim_no_bc = quantile(kernel_eta_optim_no_bc, probs = (1 - conf_level) / 2)
-    upper_ci_kernel_eta_optim_no_bc = quantile(kernel_eta_optim_no_bc, probs = 1 - (1 - conf_level) / 2)
-    cat(sprintf("Kernel ETA optim no BC %f CI: [%f, %f ]\n", conf_level, lower_ci_kernel_eta_optim_no_bc, upper_ci_kernel_eta_optim_no_bc))
-    lower_ci_kernel_eta_optim_yes_bc = quantile(kernel_eta_optim_yes_bc, probs = (1 - conf_level) / 2)
-    upper_ci_kernel_eta_optim_yes_bc = quantile(kernel_eta_optim_yes_bc, probs = 1 - (1 - conf_level) / 2)
-    cat(sprintf("Kernel ETA optim yes BC %f CI: [%f, %f ]\n", conf_level, lower_ci_kernel_eta_optim_yes_bc, upper_ci_kernel_eta_optim_yes_bc))
-    lower_ci_kernel_eta_iqr_no_bc = quantile(kernel_eta_iqr_no_bc, probs = (1 - conf_level) / 2)
-    upper_ci_kernel_eta_iqr_no_bc = quantile(kernel_eta_iqr_no_bc, probs = 1 - (1 - conf_level) / 2)
-    cat(sprintf("Kernel ETA iqr no BC %f CI: [%f, %f ]\n", conf_level, lower_ci_kernel_eta_iqr_no_bc, upper_ci_kernel_eta_iqr_no_bc))
-    lower_ci_kernel_eta_iqr_yes_bc = quantile(kernel_eta_iqr_yes_bc, probs = (1 - conf_level) / 2)
-    upper_ci_kernel_eta_iqr_yes_bc = quantile(kernel_eta_iqr_yes_bc, probs = 1 - (1 - conf_level) / 2)
-    cat(sprintf("Kernel ETA iqr yes BC %f CI: [%f, %f ]\n", conf_level, lower_ci_kernel_eta_iqr_yes_bc, upper_ci_kernel_eta_iqr_yes_bc))
-
-
-    return(list(
-        pvalue_auc = pvalue_auc,
-        pvalue_youden = pvalue_youden,
-        pvalue_parametric_eta_no_bc = pvalue_parametric_eta_no_bc,
-        pvalue_parametric_eta_yes_bc = pvalue_parametric_eta_yes_bc,
-        pvalue_kernel_eta_hscv_no_bc = pvalue_kernel_eta_hscv_no_bc,
-        pvalue_kernel_eta_hscv_yes_bc = pvalue_kernel_eta_hscv_yes_bc,
-        pvalue_kernel_eta_optim_no_bc = pvalue_kernel_eta_optim_no_bc,
-        pvalue_kernel_eta_optim_yes_bc = pvalue_kernel_eta_optim_yes_bc,
-        pvalue_kernel_eta_iqr_no_bc = pvalue_kernel_eta_iqr_no_bc,
-        pvalue_kernel_eta_iqr_yes_bc = pvalue_kernel_eta_iqr_yes_bc,
-        ci_auc = c(lower_ci_auc, upper_ci_auc),
-        ci_youden = c(lower_ci_youden, upper_ci_youden),
-        ci_parametric_eta_no_bc = c(lower_ci_parametric_eta_no_bc, upper_ci_parametric_eta_no_bc),
-        ci_parametric_eta_yes_bc = c(lower_ci_parametric_eta_yes_bc, upper_ci_parametric_eta_yes_bc),
-        ci_kernel_eta_hscv_no_bc = c(lower_ci_kernel_eta_hscv_no_bc, upper_ci_kernel_eta_hscv_no_bc),
-        ci_kernel_eta_hscv_yes_bc = c(lower_ci_kernel_eta_hscv_yes_bc, upper_ci_kernel_eta_hscv_yes_bc),
-        ci_kernel_eta_optim_no_bc = c(lower_ci_kernel_eta_optim_no_bc, upper_ci_kernel_eta_optim_no_bc),
-        ci_kernel_eta_optim_yes_bc = c(lower_ci_kernel_eta_optim_yes_bc, upper_ci_kernel_eta_optim_yes_bc),
-        ci_kernel_eta_iqr_no_bc = c(lower_ci_kernel_eta_iqr_no_bc, upper_ci_kernel_eta_iqr_no_bc),
-        ci_kernel_eta_iqr_yes_bc = c(lower_ci_kernel_eta_iqr_yes_bc, upper_ci_kernel_eta_iqr_yes_bc)
-    ))
-}
-
-format_value <- function(x) {
-    if (is.null(x)) return("NULL")
-    if (is.atomic(x)) return(paste(round(as.numeric(x), 4), collapse = ", "))
-    paste(capture.output(print(x)), collapse = " | ")
+    invisible(list(observed = observed, pvalues = pvalues))
 }
 
 
-## DATA 207039N
-###################################
-data_207039N = read.table("/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/53,53/data207039.txt", header = FALSE, sep = "", dec = ".")
-controls_207039N = data_207039N$V1[data_207039N$V2==0]
-cases_207039N = data_207039N$V1[data_207039N$V2==1]
+############################################
+## Bootstrap confidence intervals
+############################################
+get_confidence_interval = function(controls, cases, conf_level = 0.95, n_boot = 500) {
 
-auc_207039N_cases_controls = calculate_auc_normal(cases_207039N, controls_207039N)
-auc_207039N_controls_cases = calculate_auc_normal(controls_207039N, cases_207039N)
-auc_207039N = max(auc_207039N_cases_controls, auc_207039N_controls_cases)
+  set.seed(1)
 
-youden_207039N_cases_controls = calculate_youden_normal(cases_207039N, controls_207039N)
-youden_207039N_controls_cases = calculate_youden_normal(controls_207039N, cases_207039N)
-youden_207039N = max(youden_207039N_cases_controls, youden_207039N_controls_cases)
+  alpha = 1 - conf_level
 
-parametric_eta_no_bc_207039N = parametric_eta(controls_207039N, cases_207039N, 1, box_cox = FALSE)
-parametric_eta_yes_bc_207039N = parametric_eta(controls_207039N, cases_207039N, 1, box_cox = TRUE)
-kernel_eta_hscv_no_bc_207039N= kernel_eta(controls_207039N, cases_207039N, "hscv", 1, box_cox = FALSE)
-kernel_eta_hscv_yes_bc_207039N= kernel_eta(controls_207039N, cases_207039N, "hscv", 1, box_cox = TRUE)
-kernel_eta_optim_no_bc_207039N = kernel_eta(controls_207039N, cases_207039N, "optimal", 1, box_cox = FALSE)
-kernel_eta_optim_yes_bc_207039N = kernel_eta(controls_207039N, cases_207039N, "optimal", 1, box_cox = TRUE)
-kernal_eta_iqr_no_bc_207039N = kernel_eta(controls_207039N, cases_207039N, "iqr", 1, box_cox = FALSE)
-kernal_eta_iqr_yes_bc_207039N = kernel_eta(controls_207039N, cases_207039N, "iqr", 1, box_cox = TRUE)
+  transformed_original = apply_box_cox(controls, cases)
+  transformed_controls = transformed_original$transformed_x
+  transformed_cases = transformed_original$transformed_y
+
+  observed = list(
+    auc_par_no_bc = max(calculate_auc_normal(cases, controls), calculate_auc_normal(controls, cases)),
+    auc_par_yes_bc = max(calculate_auc_normal(transformed_cases, transformed_controls), calculate_auc_normal(transformed_controls, transformed_cases)),
+    auc_hscv_no_bc = max(calculate_auc_kernel(cases, controls, "hscv", box_cox = FALSE), calculate_auc_kernel(controls, cases, "hscv", box_cox = FALSE)),
+    auc_hscv_yes_bc = max(calculate_auc_kernel(cases, controls, "hscv", box_cox = TRUE), calculate_auc_kernel(controls, cases, "hscv", box_cox = TRUE)),
+    auc_opt_no_bc = max(calculate_auc_kernel(cases, controls, "optimal", box_cox = FALSE), calculate_auc_kernel(controls, cases, "optimal", box_cox = FALSE)),
+    auc_opt_yes_bc = max(calculate_auc_kernel(cases, controls, "optimal", box_cox = TRUE), calculate_auc_kernel(controls, cases, "optimal", box_cox = TRUE)),
+    auc_iqr_no_bc = max(calculate_auc_kernel(cases, controls, "iqr", box_cox = FALSE), calculate_auc_kernel(controls, cases, "iqr", box_cox = FALSE)),
+    auc_iqr_yes_bc = max(calculate_auc_kernel(cases, controls, "iqr", box_cox = TRUE), calculate_auc_kernel(controls, cases, "iqr", box_cox = TRUE)),
+    youden_par_no_bc = max(calculate_youden_normal(cases, controls), calculate_youden_normal(controls, cases)),
+    youden_par_yes_bc = max(calculate_youden_normal(transformed_cases, transformed_controls), calculate_youden_normal(transformed_controls, transformed_cases)),
+    youden_hscv_no_bc = max(calculate_youden_kernel(cases, controls, "hscv", box_cox = FALSE), calculate_youden_kernel(controls, cases, "hscv", box_cox = FALSE)),
+    youden_hscv_yes_bc = max(calculate_youden_kernel(cases, controls, "hscv", box_cox = TRUE), calculate_youden_kernel(controls, cases, "hscv", box_cox = TRUE)),
+    youden_opt_no_bc = max(calculate_youden_kernel(cases, controls, "optimal", box_cox = FALSE), calculate_youden_kernel(controls, cases, "optimal", box_cox = FALSE)),
+    youden_opt_yes_bc = max(calculate_youden_kernel(cases, controls, "optimal", box_cox = TRUE), calculate_youden_kernel(controls, cases, "optimal", box_cox = TRUE)),
+    youden_iqr_no_bc = max(calculate_youden_kernel(cases, controls, "iqr", box_cox = FALSE), calculate_youden_kernel(controls, cases, "iqr", box_cox = FALSE)),
+    youden_iqr_yes_bc = max(calculate_youden_kernel(cases, controls, "iqr", box_cox = TRUE), calculate_youden_kernel(controls, cases, "iqr", box_cox = TRUE)),
+    eta_par_no_bc = parametric_eta(controls, cases, 1, box_cox = FALSE),
+    eta_par_yes_bc = parametric_eta(controls, cases, 1, box_cox = TRUE),
+    eta_hscv_no_bc = kernel_eta(controls, cases, "hscv", 1, box_cox = FALSE),
+    eta_hscv_yes_bc = kernel_eta(controls, cases, "hscv", 1, box_cox = TRUE),
+    eta_opt_no_bc = kernel_eta(controls, cases, "optimal", 1, box_cox = FALSE),
+    eta_opt_yes_bc = kernel_eta(controls, cases, "optimal", 1, box_cox = TRUE),
+    eta_iqr_no_bc = kernel_eta(controls, cases, "iqr", 1, box_cox = FALSE),
+    eta_iqr_yes_bc = kernel_eta(controls, cases, "iqr", 1, box_cox = TRUE)
+  )
+
+  boot = lapply(observed, function(x) numeric(n_boot))
+
+  for (b in seq_len(n_boot)) {
+
+    controls_b = sample(controls, replace = TRUE)
+    cases_b = sample(cases, replace = TRUE)
+
+    transformed_cases_b = apply_box_cox(cases_b, controls_b)$transformed_y
+    transformed_controls_b = apply_box_cox(cases_b, controls_b)$transformed_x
 
 
-lines <- c(
-    "===== RESULTS for 207039N =====",
-    sprintf("AUC (cases vs controls): %s", format_value(auc_207039N_cases_controls)),
-    sprintf("AUC (controls vs cases): %s", format_value(auc_207039N_controls_cases)),
-    sprintf("AUC chosen: %s", format_value(auc_207039N)),
-    "",
-    sprintf("Youden (cases vs controls): %s", format_value(youden_207039N_cases_controls)),
-    sprintf("Youden (controls vs cases): %s", format_value(youden_207039N_controls_cases)),
-    sprintf("Youden chosen: %s", format_value(youden_207039N)),
-    "",
-    "---- ETA estimates ----",
-    sprintf("Parametric ETA (no BC): %s", format_value(parametric_eta_no_bc_207039N)),
-    sprintf("Parametric ETA (yes BC): %s", format_value(parametric_eta_yes_bc_207039N)),
-    sprintf("Kernel ETA (hscv, no BC): %s", format_value(kernel_eta_hscv_no_bc_207039N)),
-    sprintf("Kernel ETA (hscv, yes BC): %s", format_value(kernel_eta_hscv_yes_bc_207039N)),
-    sprintf("Kernel ETA (optimal, no BC): %s", format_value(kernel_eta_optim_no_bc_207039N)),
-    sprintf("Kernel ETA (optimal, yes BC): %s", format_value(kernel_eta_optim_yes_bc_207039N)),
-    sprintf("Kernel ETA (iqr, no BC): %s", format_value(kernal_eta_iqr_no_bc_207039N)),
-    sprintf("Kernel ETA (iqr, yes BC): %s", format_value(kernal_eta_iqr_yes_bc_207039N)),
-    "================================"
+    boot$auc_par_no_bc[b] = max(calculate_auc_normal(cases_b, controls_b), calculate_auc_normal(controls_b, cases_b))
+    boot$auc_par_yes_bc[b] = max(calculate_auc_normal(transformed_cases_b, transformed_controls_b), calculate_auc_normal(transformed_controls_b, transformed_cases_b))
+    boot$auc_hscv_no_bc[b] = max(calculate_auc_kernel(cases_b, controls_b, "hscv", box_cox = FALSE), calculate_auc_kernel(controls_b, cases_b, "hscv", box_cox = FALSE))
+    boot$auc_hscv_yes_bc[b] = max(calculate_auc_kernel(cases_b, controls_b, "hscv", box_cox = TRUE), calculate_auc_kernel(controls_b, cases_b, "hscv", box_cox = TRUE))
+    boot$auc_opt_no_bc[b] = max(calculate_auc_kernel(cases_b, controls_b, "optimal", box_cox = FALSE), calculate_auc_kernel(controls_b, cases_b, "optimal", box_cox = FALSE))
+    boot$auc_opt_yes_bc[b] = max(calculate_auc_kernel(cases_b, controls_b, "optimal", box_cox = TRUE), calculate_auc_kernel(controls_b, cases_b, "optimal", box_cox = TRUE))
+    boot$auc_iqr_no_bc[b] = max(calculate_auc_kernel(cases_b, controls_b, "iqr", box_cox = FALSE), calculate_auc_kernel(controls_b, cases_b, "iqr", box_cox = FALSE))
+    boot$auc_iqr_yes_bc[b] = max(calculate_auc_kernel(cases_b, controls_b, "iqr", box_cox = TRUE), calculate_auc_kernel(controls_b, cases_b, "iqr", box_cox = TRUE))
+    boot$youden_par_no_bc[b] = max(calculate_youden_normal(cases_b, controls_b), calculate_youden_normal(controls_b, cases_b))
+    boot$youden_par_yes_bc[b] = max(calculate_youden_normal(transformed_cases_b, transformed_controls_b), calculate_youden_normal(transformed_controls_b, transformed_cases_b))
+    boot$youden_hscv_no_bc[b] = max(calculate_youden_kernel(cases_b, controls_b, "hscv", box_cox = FALSE), calculate_youden_kernel(controls_b, cases_b, "hscv", box_cox = FALSE))
+    boot$youden_hscv_yes_bc[b] = max(calculate_youden_kernel(cases_b, controls_b, "hscv", box_cox = TRUE), calculate_youden_kernel(controls_b, cases_b, "hscv", box_cox = TRUE))
+    boot$youden_opt_no_bc[b] = max(calculate_youden_kernel(cases_b, controls_b, "optimal", box_cox = FALSE), calculate_youden_kernel(controls_b, cases_b, "optimal", box_cox = FALSE))
+    boot$youden_opt_yes_bc[b] = max(calculate_youden_kernel(cases_b, controls_b, "optimal", box_cox = TRUE), calculate_youden_kernel(controls_b, cases_b, "optimal", box_cox = TRUE))
+    boot$youden_iqr_no_bc[b] = max(calculate_youden_kernel(cases_b, controls_b, "iqr", box_cox = FALSE), calculate_youden_kernel(controls_b, cases_b, "iqr", box_cox = FALSE))
+    boot$youden_iqr_yes_bc[b] = max(calculate_youden_kernel(cases_b, controls_b, "iqr", box_cox = TRUE), calculate_youden_kernel(controls_b, cases_b, "iqr", box_cox = TRUE))
+    boot$eta_par_no_bc[b] = parametric_eta(controls_b, cases_b, 1, box_cox = FALSE)
+    boot$eta_par_yes_bc[b] = parametric_eta(controls_b, cases_b, 1, box_cox = TRUE)
+    boot$eta_hscv_no_bc[b] = kernel_eta(controls_b, cases_b, "hscv", 1, box_cox = FALSE)
+    boot$eta_hscv_yes_bc[b] = kernel_eta(controls_b, cases_b, "hscv", 1, box_cox = TRUE)
+    boot$eta_opt_no_bc[b] = kernel_eta(controls_b, cases_b, "optimal", 1, box_cox = FALSE)
+    boot$eta_opt_yes_bc[b] = kernel_eta(controls_b, cases_b, "optimal", 1, box_cox = TRUE)
+    boot$eta_iqr_no_bc[b] = kernel_eta(controls_b, cases_b, "iqr", 1, box_cox = FALSE)
+    boot$eta_iqr_yes_bc[b] = kernel_eta(controls_b, cases_b, "iqr", 1, box_cox = TRUE)
+  }
+
+  ci = lapply(
+    boot,
+    function(x) quantile(x, probs = c(alpha / 2, 1 - alpha / 2), na.rm = TRUE)
+  )
+
+  cat("============================================\n")
+  cat(" BOOTSTRAP CONFIDENCE INTERVALS\n")
+  cat("============================================\n\n")
+
+  for (name in names(observed)) {
+    print_ci(name, observed[[name]], ci[[name]], conf_level)
+  }
+
+  invisible(list(observed = observed, ci = ci))
+}
+
+
+############################################
+## DATASET 207039N
+############################################
+data_207039N = read.table(
+  "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/53,53/data207039.txt",
+  header = FALSE
 )
 
-cat(paste(lines, collapse = "\n"), "\n")
-invisible(lines)
+controls_207039N = data_207039N$V1[data_207039N$V2 == 0]
+cases_207039N = data_207039N$V1[data_207039N$V2 == 1]
+
+cat("\n========== DATASET 207039N ==========\n\n")
+cat("/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/53,53/data207039.txt \n \n")
+file_path <- "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/53,53/data207039.txt"
+p_res <- get_p_values(controls_207039N, cases_207039N)
+ci_res <- get_confidence_interval(controls_207039N, cases_207039N)
+add_results(file_path, p_res, ci_res)
 
 
-p_values_207039N = get_confidence_interval(controls_207039N, cases_207039N, conf_level = 0.95)
-
-
-## DATA 209644N
-#########################################
-data_209644N = read.table("/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/53,53/data209644.txt", header = FALSE, sep = "", dec = ".")
-controls_209644N = data_209644N$V1[data_209644N$V2==0]
-cases_209644N = data_209644N$V1[data_209644N$V2==1]
-shapiro.test(controls_209644N)
-shapiro.test(cases_209644N)
-
-
-auc_209644N_cases_controls = calculate_auc_normal(cases_209644N, controls_209644N)
-auc_209644N_controls_cases = calculate_auc_normal(controls_209644N, cases_209644N)
-auc_209644N = max(auc_209644N_cases_controls, auc_209644N_controls_cases)
-youden_209644N_cases_controls = calculate_youden_normal(cases_209644N, controls_209644N)
-youden_209644N_controls_cases = calculate_youden_normal(controls_209644N, cases_209644N)
-youden_209644N = max(youden_209644N_cases_controls, youden_209644N_controls_cases)
-
-parametric_eta_no_bc_209644N = parametric_eta(controls_209644N, cases_209644N, 1, box_cox = FALSE)
-parametric_eta_yes_bc_209644N = parametric_eta(controls_209644N, cases_209644N, 1, box_cox = TRUE)
-kernel_eta_hscv_no_bc_209644N= kernel_eta(controls_209644N, cases_209644N, "hscv", 1, box_cox = FALSE)
-kernel_eta_hscv_yes_bc_209644N= kernel_eta(controls_209644N, cases_209644N, "hscv", 1, box_cox = TRUE)
-kernel_eta_optim_no_bc_209644N = kernel_eta(controls_209644N, cases_209644N, "optimal", 1, box_cox = FALSE)
-kernel_eta_optim_yes_bc_209644N = kernel_eta(controls_209644N, cases_209644N, "optimal", 1, box_cox = TRUE)
-kernal_eta_iqr_no_bc_209644N = kernel_eta(controls_209644N, cases_209644N, "iqr", 1, box_cox = FALSE)
-kernal_eta_iqr_yes_bc_209644N = kernel_eta(controls_209644N, cases_209644N, "iqr", 1, box_cox = TRUE)
-
-lines <- c(
-    "===== RESULTS for 209644N =====",
-    sprintf("AUC (cases vs controls): %s", format_value(auc_209644N_cases_controls)),
-    sprintf("AUC (controls vs cases): %s", format_value(auc_209644N_controls_cases)),
-    sprintf("AUC chosen: %s", format_value(auc_209644N)),
-    "",
-    sprintf("Youden (cases vs controls): %s", format_value(youden_209644N_cases_controls)),
-    sprintf("Youden (controls vs cases): %s", format_value(youden_209644N_controls_cases)),
-    sprintf("Youden chosen: %s", format_value(youden_209644N)),
-    "",
-    "---- ETA estimates ----",
-    sprintf("Parametric ETA (no BC): %s", format_value(parametric_eta_no_bc_209644N)),
-    sprintf("Parametric ETA (yes BC): %s", format_value(parametric_eta_yes_bc_209644N)),
-    sprintf("Kernel ETA (hscv, no BC): %s", format_value(kernel_eta_hscv_no_bc_209644N)),
-    sprintf("Kernel ETA (hscv, yes BC): %s", format_value(kernel_eta_hscv_yes_bc_209644N)),
-    sprintf("Kernel ETA (optimal, no BC): %s", format_value(kernel_eta_optim_no_bc_209644N)),
-    sprintf("Kernel ETA (optimal, yes BC): %s", format_value(kernel_eta_optim_yes_bc_209644N)),
-    sprintf("Kernel ETA (iqr, no BC): %s", format_value(kernal_eta_iqr_no_bc_209644N)),
-    sprintf("Kernel ETA (iqr, yes BC): %s", format_value(kernal_eta_iqr_yes_bc_209644N)),
-    "================================"
+############################################
+## DATASET 207039N
+############################################
+data_207039N = read.table(
+  "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/data207039.txt",
+  header = FALSE
 )
 
-cat(paste(lines, collapse = "\n"), "\n")
-invisible(lines)
+controls_207039N = data_207039N$V1[data_207039N$V2 == 0]
+cases_207039N = data_207039N$V1[data_207039N$V2 == 1]
 
-p_values_209644N = get_confidence_interval(controls_209644N, cases_209644N, conf_level = 0.95)
+cat("\n========== DATASET 207039N ==========\n\n")
+cat("/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/data207039.txt \n \n")
+file_path <- "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/data207039.txt"
+p_res <- get_p_values(controls_207039N, cases_207039N)
+ci_res <- get_confidence_interval(controls_207039N, cases_207039N)
+add_results(file_path, p_res, ci_res)
+
+
+############################################
+## DATASET 209644N
+############################################
+data_209644N = read.table(
+  "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/53,53/data209644.txt",
+  header = FALSE
+)
+
+controls_209644N = data_209644N$V1[data_209644N$V2 == 0]
+cases_209644N = data_209644N$V1[data_209644N$V2 == 1]
+
+cat("\n========== DATASET 209644N ==========\n\n")
+file_path <- "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/53,53/data209644.txt"
+p_res <- get_p_values(controls_209644N, cases_209644N)
+ci_res <- get_confidence_interval(controls_209644N, cases_209644N)
+add_results(file_path, p_res, ci_res)
+
+############################################
+## DATASET 209644N
+############################################
+data_209644N = read.table(
+  "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/data209644.txt",
+  header = FALSE
+)
+
+controls_209644N = data_209644N$V1[data_209644N$V2 == 0]
+cases_209644N = data_209644N$V1[data_209644N$V2 == 1]
+
+cat("\n========== DATASET 209644N ==========\n\n")
+cat("/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/data209644.txt \n \n")
+file_path <- "/Users/Riki/Desktop/ucm/articulo/Simulciones/Ejemplo Bantis0 compartido/data209644.txt"
+p_res <- get_p_values(controls_209644N, cases_209644N)
+ci_res <- get_confidence_interval(controls_209644N, cases_209644N)
+add_results(file_path, p_res, ci_res)
+
+# Write accumulated results to JSON file
+write_json(results_all, "results/simulations_all_kernel_for_all_v2.json", pretty = TRUE, auto_unbox = TRUE)
