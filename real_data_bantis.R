@@ -22,7 +22,7 @@ get_confidence_interval = function(controls, cases, conf_level = 0.95, n_boot = 
     for (b_it in 1:n_boot){
         controls_size = length(controls)
         cases_size = length(cases)
-        bootstrap_sample = sample(combined_sample, replace = FALSE)
+        bootstrap_sample = sample(combined_sample, replace = TRUE)
         bootstrap_controls = bootstrap_sample[1:controls_size]
         bootstrap_cases = bootstrap_sample[controls_size: length(combined_sample)]
 
@@ -64,6 +64,7 @@ get_confidence_interval = function(controls, cases, conf_level = 0.95, n_boot = 
 
 
     pvalue_auc = sum(auc > original_auc) / n_boot
+    cat(pvalue_auc)
     pvalue_youden = sum(youden > original_youden) / n_boot
     pvalue_parametric_eta_no_bc = sum(parametric_eta_no_bc > original_parametric_eta_no_bc) / n_boot
     pvalue_parametric_eta_yes_bc = sum(parametric_eta_yes_bc > original_parametric_eta_yes_bc) / n_boot
@@ -74,47 +75,47 @@ get_confidence_interval = function(controls, cases, conf_level = 0.95, n_boot = 
     pvalue_kernel_eta_iqr_no_bc = sum(kernel_eta_iqr_no_bc > original_kernel_eta_iqr_no_bc) / n_boot
     pvalue_kernel_eta_iqr_yes_bc = sum(kernel_eta_iqr_yes_bc > original_kernel_eta_iqr_yes_bc) / n_boot
 
-    sprintf("pvalue auc: %f", pvalue_auc)
-    sprintf("pvalue youden: %f", pvalue_youden)
-    sprintf("pvalue parametric eta no bc: %f", pvalue_parametric_eta_no_bc)
-    sprintf("pvalue parametric eta yes bc: %f", pvalue_parametric_eta_yes_bc)
-    sprintf("pvalue kernel eta hscv no bc: %f", pvalue_kernel_eta_hscv_no_bc)
-    sprintf("pvalue kernel eta hscv yes bc: %f", pvalue_kernel_eta_hscv_yes_bc)
-    sprintf("pvalue kernel eta optim no bc: %f", pvalue_kernel_eta_optim_no_bc)
-    sprintf("pvalue kernel eta optim yes bc: %f", pvalue_kernel_eta_optim_yes_bc)
-    sprintf("pvalue kernel eta iqr no bc: %f", pvalue_kernel_eta_iqr_no_bc)
-    sprintf("pvalue kernel eta iqr yes bc: %f", pvalue_kernel_eta_iqr_yes_bc)
+    cat(sprintf("pvalue auc: %f\n", pvalue_auc))
+    cat(sprintf("pvalue youden: %f\n", pvalue_youden))
+    cat(sprintf("pvalue parametric eta no bc: %f\n", pvalue_parametric_eta_no_bc))
+    cat(sprintf("pvalue parametric eta yes bc: %f\n", pvalue_parametric_eta_yes_bc))
+    cat(sprintf("pvalue kernel eta hscv no bc: %f\n", pvalue_kernel_eta_hscv_no_bc))
+    cat(sprintf("pvalue kernel eta hscv yes bc: %f\n", pvalue_kernel_eta_hscv_yes_bc))
+    cat(sprintf("pvalue kernel eta optim no bc: %f\n", pvalue_kernel_eta_optim_no_bc))
+    cat(sprintf("pvalue kernel eta optim yes bc: %f\n", pvalue_kernel_eta_optim_yes_bc))
+    cat(sprintf("pvalue kernel eta iqr no bc: %f\n", pvalue_kernel_eta_iqr_no_bc))
+    cat(sprintf("pvalue kernel eta iqr yes bc: %f\n", pvalue_kernel_eta_iqr_yes_bc))
 
     lower_ci_auc = quantile(auc, probs = (1 - conf_level) / 2)
     upper_ci_auc = quantile(auc, probs = 1 - (1 - conf_level) / 2)
-    sprintf("AUC %f CI: [%f, %f ]", conf_level, lower_ci_auc, upper_ci_auc) 
+    cat(sprintf("AUC %f CI: [%f, %f ]\n", conf_level, lower_ci_auc, upper_ci_auc))
     lower_ci_youden = quantile(youden, probs = (1 - conf_level) / 2)
     upper_ci_youden = quantile(youden, probs = 1 - (1 - conf_level) / 2)
-    sprintf("Youden %f CI: [%f, %f ]", conf_level, lower_ci_youden, upper_ci_youden)
+    cat(sprintf("Youden %f CI: [%f, %f ]\n", conf_level, lower_ci_youden, upper_ci_youden))
     lower_ci_parametric_eta_no_bc = quantile(parametric_eta_no_bc, probs = (1 - conf_level) / 2)
     upper_ci_parametric_eta_no_bc = quantile(parametric_eta_no_bc, probs = 1 - (1 - conf_level) / 2)
-    sprintf("Parametric ETA no BC %f CI: [%f, %f ]", conf_level, lower_ci_parametric_eta_no_bc, upper_ci_parametric_eta_no_bc)
+    cat(sprintf("Parametric ETA no BC %f CI: [%f, %f ]\n", conf_level, lower_ci_parametric_eta_no_bc, upper_ci_parametric_eta_no_bc))
     lower_ci_parametric_eta_yes_bc = quantile(parametric_eta_yes_bc, probs = (1 - conf_level) / 2)
     upper_ci_parametric_eta_yes_bc = quantile(parametric_eta_yes_bc, probs = 1 - (1 - conf_level) / 2)
-    sprintf("Parametric ETA yes BC %f CI: [%f, %f ]", conf_level, lower_ci_parametric_eta_yes_bc, upper_ci_parametric_eta_yes_bc)
+    cat(sprintf("Parametric ETA yes BC %f CI: [%f, %f ]\n", conf_level, lower_ci_parametric_eta_yes_bc, upper_ci_parametric_eta_yes_bc))
     lower_ci_kernel_eta_hscv_no_bc = quantile(kernel_eta_hscv_no_bc, probs = (1 - conf_level) / 2)
     upper_ci_kernel_eta_hscv_no_bc = quantile(kernel_eta_hscv_no_bc, probs = 1 - (1 - conf_level) / 2)
-    sprintf("Kernel ETA hscv no BC %f CI: [%f, %f ]", conf_level, lower_ci_kernel_eta_hscv_no_bc, upper_ci_kernel_eta_hscv_no_bc)
+    cat(sprintf("Kernel ETA hscv no BC %f CI: [%f, %f ]\n", conf_level, lower_ci_kernel_eta_hscv_no_bc, upper_ci_kernel_eta_hscv_no_bc))
     lower_ci_kernel_eta_hscv_yes_bc = quantile(kernel_eta_hscv_yes_bc, probs = (1 - conf_level) / 2)
     upper_ci_kernel_eta_hscv_yes_bc = quantile(kernel_eta_hscv_yes_bc, probs = 1 - (1 - conf_level) / 2)
-    sprintf("Kernel ETA hscv yes BC %f CI: [%f, %f ]", conf_level, lower_ci_kernel_eta_hscv_yes_bc, upper_ci_kernel_eta_hscv_yes_bc)
+    cat(sprintf("Kernel ETA hscv yes BC %f CI: [%f, %f ]\n", conf_level, lower_ci_kernel_eta_hscv_yes_bc, upper_ci_kernel_eta_hscv_yes_bc))
     lower_ci_kernel_eta_optim_no_bc = quantile(kernel_eta_optim_no_bc, probs = (1 - conf_level) / 2)
     upper_ci_kernel_eta_optim_no_bc = quantile(kernel_eta_optim_no_bc, probs = 1 - (1 - conf_level) / 2)
-    sprintf("Kernel ETA optim no BC %f CI: [%f, %f ]", conf_level, lower_ci_kernel_eta_optim_no_bc, upper_ci_kernel_eta_optim_no_bc)
+    cat(sprintf("Kernel ETA optim no BC %f CI: [%f, %f ]\n", conf_level, lower_ci_kernel_eta_optim_no_bc, upper_ci_kernel_eta_optim_no_bc))
     lower_ci_kernel_eta_optim_yes_bc = quantile(kernel_eta_optim_yes_bc, probs = (1 - conf_level) / 2)
     upper_ci_kernel_eta_optim_yes_bc = quantile(kernel_eta_optim_yes_bc, probs = 1 - (1 - conf_level) / 2)
-    sprintf("Kernel ETA optim yes BC %f CI: [%f, %f ]", conf_level, lower_ci_kernel_eta_optim_yes_bc, upper_ci_kernel_eta_optim_yes_bc)
+    cat(sprintf("Kernel ETA optim yes BC %f CI: [%f, %f ]\n", conf_level, lower_ci_kernel_eta_optim_yes_bc, upper_ci_kernel_eta_optim_yes_bc))
     lower_ci_kernel_eta_iqr_no_bc = quantile(kernel_eta_iqr_no_bc, probs = (1 - conf_level) / 2)
     upper_ci_kernel_eta_iqr_no_bc = quantile(kernel_eta_iqr_no_bc, probs = 1 - (1 - conf_level) / 2)
-    sprintf("Kernel ETA iqr no BC %f CI: [%f, %f ]", conf_level, lower_ci_kernel_eta_iqr_no_bc, upper_ci_kernel_eta_iqr_no_bc)
+    cat(sprintf("Kernel ETA iqr no BC %f CI: [%f, %f ]\n", conf_level, lower_ci_kernel_eta_iqr_no_bc, upper_ci_kernel_eta_iqr_no_bc))
     lower_ci_kernel_eta_iqr_yes_bc = quantile(kernel_eta_iqr_yes_bc, probs = (1 - conf_level) / 2)
     upper_ci_kernel_eta_iqr_yes_bc = quantile(kernel_eta_iqr_yes_bc, probs = 1 - (1 - conf_level) / 2)
-    sprintf("Kernel ETA iqr yes BC %f CI: [%f, %f ]", conf_level, lower_ci_kernel_eta_iqr_yes_bc, upper_ci_kernel_eta_iqr_yes_bc)
+    cat(sprintf("Kernel ETA iqr yes BC %f CI: [%f, %f ]\n", conf_level, lower_ci_kernel_eta_iqr_yes_bc, upper_ci_kernel_eta_iqr_yes_bc))
 
 
     return(list(
@@ -198,7 +199,7 @@ cat(paste(lines, collapse = "\n"), "\n")
 invisible(lines)
 
 
-p_values_207039N = get_confidence_interval(controls_207039N, cases_207039N, conf_level = 0.95, n_boot = 500)
+p_values_207039N = get_confidence_interval(controls_207039N, cases_207039N, conf_level = 0.95)
 
 
 ## DATA 209644N
@@ -251,4 +252,4 @@ lines <- c(
 cat(paste(lines, collapse = "\n"), "\n")
 invisible(lines)
 
-p_values_209644N = get_confidence_interval(controls_209644N, cases_209644N, conf_level = 0.95, n_boot = 500)
+p_values_209644N = get_confidence_interval(controls_209644N, cases_209644N, conf_level = 0.95)
