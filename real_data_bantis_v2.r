@@ -58,15 +58,20 @@ get_p_values = function(controls, cases, n_perm = 500) {
     n_cases = length(cases)
     combined = c(controls, cases)
 
+    transformed_original = apply_box_cox(controls, cases)
+    transformed_controls = transformed_original$transformed_x
+    transformed_cases = transformed_original$transformed_y
     observed = list(
-    auc_gaussian = max(calculate_auc_normal(cases, controls), calculate_auc_normal(controls, cases)),
+    auc_par_no_bc = max(calculate_auc_normal(cases, controls), calculate_auc_normal(controls, cases)),
+    auc_par_yes_bc = max(calculate_auc_normal(transformed_cases, transformed_controls), calculate_auc_normal(transformed_controls, transformed_cases)),
     auc_hscv_no_bc = max(calculate_auc_kernel(cases, controls, "hscv", box_cox = FALSE), calculate_auc_kernel(controls, cases, "hscv", box_cox = FALSE)),
     auc_hscv_yes_bc = max(calculate_auc_kernel(cases, controls, "hscv", box_cox = TRUE), calculate_auc_kernel(controls, cases, "hscv", box_cox = TRUE)),
     auc_opt_no_bc = max(calculate_auc_kernel(cases, controls, "optimal", box_cox = FALSE), calculate_auc_kernel(controls, cases, "optimal", box_cox = FALSE)),
     auc_opt_yes_bc = max(calculate_auc_kernel(cases, controls, "optimal", box_cox = TRUE), calculate_auc_kernel(controls, cases, "optimal", box_cox = TRUE)),
     auc_iqr_no_bc = max(calculate_auc_kernel(cases, controls, "iqr", box_cox = FALSE), calculate_auc_kernel(controls, cases, "iqr", box_cox = FALSE)),
     auc_iqr_yes_bc = max(calculate_auc_kernel(cases, controls, "iqr", box_cox = TRUE), calculate_auc_kernel(controls, cases, "iqr", box_cox = TRUE)),
-    youden_gaussian = max(calculate_youden_normal(cases, controls), calculate_youden_normal(controls, cases)),
+    youden_par_no_bc = max(calculate_youden_normal(cases, controls), calculate_youden_normal(controls, cases)),
+    youden_par_yes_bc = max(calculate_youden_normal(transformed_cases, transformed_controls), calculate_youden_normal(transformed_controls, transformed_cases)),
     youden_hscv_no_bc = max(calculate_youden_kernel(cases, controls, "hscv", box_cox = FALSE), calculate_youden_kernel(controls, cases, "hscv", box_cox = FALSE)),
     youden_hscv_yes_bc = max(calculate_youden_kernel(cases, controls, "hscv", box_cox = TRUE), calculate_youden_kernel(controls, cases, "hscv", box_cox = TRUE)),
     youden_opt_no_bc = max(calculate_youden_kernel(cases, controls, "optimal", box_cox = FALSE), calculate_youden_kernel(controls, cases, "optimal", box_cox = FALSE)),
@@ -92,14 +97,22 @@ get_p_values = function(controls, cases, n_perm = 500) {
       controls_p = perm_sample[1:n_controls]
       cases_p = perm_sample[(n_controls + 1):(n_controls + n_cases)]
 
-      perm$auc_gaussian[b] = max(calculate_auc_normal(cases_p, controls_p), calculate_auc_normal(controls_p, cases_p))
+      transformed = apply_box_cox(controls_p, cases_p)
+      transformed_controls_p = transformed$transformed_x
+      transformed_cases_p = transformed$transformed_y
+
+
+
+      perm$auc_par_yes_bc[b] = max(calculate_auc_normal(transformed_cases_p, transformed_controls_p), calculate_auc_normal(transformed_controls_p, transformed_cases_p))
+      perm$auc_par_no_bc[b] = max(calculate_auc_normal(controls_p, cases_p), calculate_auc_normal(controls_p, cases_p))
       perm$auc_hscv_no_bc[b] = max(calculate_auc_kernel(cases_p, controls_p, "hscv", box_cox = FALSE), calculate_auc_kernel(controls_p, cases_p, "hscv", box_cox = FALSE))
       perm$auc_hscv_yes_bc[b] = max(calculate_auc_kernel(cases_p, controls_p, "hscv", box_cox = TRUE), calculate_auc_kernel(controls_p, cases_p, "hscv", box_cox = TRUE))
       perm$auc_opt_no_bc[b] = max(calculate_auc_kernel(cases_p, controls_p, "optimal", box_cox = FALSE), calculate_auc_kernel(controls_p, cases_p, "optimal", box_cox = FALSE))
       perm$auc_opt_yes_bc[b] = max(calculate_auc_kernel(cases_p, controls_p, "optimal", box_cox = TRUE), calculate_auc_kernel(controls_p, cases_p, "optimal", box_cox = TRUE))
       perm$auc_iqr_no_bc[b] = max(calculate_auc_kernel(cases_p, controls_p, "iqr", box_cox = FALSE), calculate_auc_kernel(controls_p, cases_p, "iqr", box_cox = FALSE))
       perm$auc_iqr_yes_bc[b] = max(calculate_auc_kernel(cases_p, controls_p, "iqr", box_cox = TRUE), calculate_auc_kernel(controls_p, cases_p, "iqr", box_cox = TRUE))
-      perm$youden_gaussian[b] = max(calculate_youden_normal(cases_p, controls_p), calculate_youden_normal(controls_p, cases_p))
+      perm$youden_par_yes_bc[b] = max(calculate_youden_normal(transformed_cases_p, transformed_controls_p), calculate_youden_normal(transformed_controls_p, transformed_cases_p))
+      perm$youden_par_no_bc[b] = max(calculate_youden_normal(controls_p, cases_p), calculate_youden_normal(controls_p, cases_p))
       perm$youden_hscv_no_bc[b] = max(calculate_youden_kernel(cases_p, controls_p, "hscv", box_cox = FALSE), calculate_youden_kernel(controls_p, cases_p, "hscv", box_cox = FALSE))
       perm$youden_hscv_yes_bc[b] = max(calculate_youden_kernel(cases_p, controls_p, "hscv", box_cox = TRUE), calculate_youden_kernel(controls_p, cases_p, "hscv", box_cox = TRUE))
       perm$youden_opt_no_bc[b] = max(calculate_youden_kernel(cases_p, controls_p, "optimal", box_cox = FALSE), calculate_youden_kernel(controls_p, cases_p, "optimal", box_cox = FALSE))
@@ -165,15 +178,21 @@ get_confidence_interval = function(controls, cases, conf_level = 0.95, n_boot = 
 
   alpha = 1 - conf_level
 
+  transformed_original = apply_box_cox(controls, cases)
+  transformed_controls = transformed_original$transformed_x
+  transformed_cases = transformed_original$transformed_y
+
   observed = list(
-    auc_gaussian = max(calculate_auc_normal(cases, controls), calculate_auc_normal(controls, cases)),
+    auc_par_no_bc = max(calculate_auc_normal(cases, controls), calculate_auc_normal(controls, cases)),
+    auc_par_yes_bc = max(calculate_auc_normal(transformed_cases, transformed_controls), calculate_auc_normal(transformed_controls, transformed_cases)),
     auc_hscv_no_bc = max(calculate_auc_kernel(cases, controls, "hscv", box_cox = FALSE), calculate_auc_kernel(controls, cases, "hscv", box_cox = FALSE)),
     auc_hscv_yes_bc = max(calculate_auc_kernel(cases, controls, "hscv", box_cox = TRUE), calculate_auc_kernel(controls, cases, "hscv", box_cox = TRUE)),
     auc_opt_no_bc = max(calculate_auc_kernel(cases, controls, "optimal", box_cox = FALSE), calculate_auc_kernel(controls, cases, "optimal", box_cox = FALSE)),
     auc_opt_yes_bc = max(calculate_auc_kernel(cases, controls, "optimal", box_cox = TRUE), calculate_auc_kernel(controls, cases, "optimal", box_cox = TRUE)),
     auc_iqr_no_bc = max(calculate_auc_kernel(cases, controls, "iqr", box_cox = FALSE), calculate_auc_kernel(controls, cases, "iqr", box_cox = FALSE)),
     auc_iqr_yes_bc = max(calculate_auc_kernel(cases, controls, "iqr", box_cox = TRUE), calculate_auc_kernel(controls, cases, "iqr", box_cox = TRUE)),
-    youden_gaussian = max(calculate_youden_normal(cases, controls), calculate_youden_normal(controls, cases)),
+    youden_par_no_bc = max(calculate_youden_normal(cases, controls), calculate_youden_normal(controls, cases)),
+    youden_par_yes_bc = max(calculate_youden_normal(transformed_cases, transformed_controls), calculate_youden_normal(transformed_controls, transformed_cases)),
     youden_hscv_no_bc = max(calculate_youden_kernel(cases, controls, "hscv", box_cox = FALSE), calculate_youden_kernel(controls, cases, "hscv", box_cox = FALSE)),
     youden_hscv_yes_bc = max(calculate_youden_kernel(cases, controls, "hscv", box_cox = TRUE), calculate_youden_kernel(controls, cases, "hscv", box_cox = TRUE)),
     youden_opt_no_bc = max(calculate_youden_kernel(cases, controls, "optimal", box_cox = FALSE), calculate_youden_kernel(controls, cases, "optimal", box_cox = FALSE)),
@@ -197,14 +216,20 @@ get_confidence_interval = function(controls, cases, conf_level = 0.95, n_boot = 
     controls_b = sample(controls, replace = TRUE)
     cases_b = sample(cases, replace = TRUE)
 
-    boot$auc_gaussian[b] = max(calculate_auc_normal(cases_b, controls_b), calculate_auc_normal(controls_b, cases_b))
+    transformed_cases_b = apply_box_cox(cases_b, controls_b)$transformed_y
+    transformed_controls_b = apply_box_cox(cases_b, controls_b)$transformed_x
+
+
+    boot$auc_par_no_bc[b] = max(calculate_auc_normal(cases_b, controls_b), calculate_auc_normal(controls_b, cases_b))
+    boot$auc_par_yes_bc[b] = max(calculate_auc_normal(transformed_cases_b, transformed_controls_b), calculate_auc_normal(transformed_controls_b, transformed_cases_b))
     boot$auc_hscv_no_bc[b] = max(calculate_auc_kernel(cases_b, controls_b, "hscv", box_cox = FALSE), calculate_auc_kernel(controls_b, cases_b, "hscv", box_cox = FALSE))
     boot$auc_hscv_yes_bc[b] = max(calculate_auc_kernel(cases_b, controls_b, "hscv", box_cox = TRUE), calculate_auc_kernel(controls_b, cases_b, "hscv", box_cox = TRUE))
     boot$auc_opt_no_bc[b] = max(calculate_auc_kernel(cases_b, controls_b, "optimal", box_cox = FALSE), calculate_auc_kernel(controls_b, cases_b, "optimal", box_cox = FALSE))
     boot$auc_opt_yes_bc[b] = max(calculate_auc_kernel(cases_b, controls_b, "optimal", box_cox = TRUE), calculate_auc_kernel(controls_b, cases_b, "optimal", box_cox = TRUE))
     boot$auc_iqr_no_bc[b] = max(calculate_auc_kernel(cases_b, controls_b, "iqr", box_cox = FALSE), calculate_auc_kernel(controls_b, cases_b, "iqr", box_cox = FALSE))
     boot$auc_iqr_yes_bc[b] = max(calculate_auc_kernel(cases_b, controls_b, "iqr", box_cox = TRUE), calculate_auc_kernel(controls_b, cases_b, "iqr", box_cox = TRUE))
-    boot$youden_gaussian[b] = max(calculate_youden_normal(cases_b, controls_b), calculate_youden_normal(controls_b, cases_b))
+    boot$youden_par_no_bc[b] = max(calculate_youden_normal(cases_b, controls_b), calculate_youden_normal(controls_b, cases_b))
+    boot$youden_par_yes_bc[b] = max(calculate_youden_normal(transformed_cases_b, transformed_controls_b), calculate_youden_normal(transformed_controls_b, transformed_cases_b))
     boot$youden_hscv_no_bc[b] = max(calculate_youden_kernel(cases_b, controls_b, "hscv", box_cox = FALSE), calculate_youden_kernel(controls_b, cases_b, "hscv", box_cox = FALSE))
     boot$youden_hscv_yes_bc[b] = max(calculate_youden_kernel(cases_b, controls_b, "hscv", box_cox = TRUE), calculate_youden_kernel(controls_b, cases_b, "hscv", box_cox = TRUE))
     boot$youden_opt_no_bc[b] = max(calculate_youden_kernel(cases_b, controls_b, "optimal", box_cox = FALSE), calculate_youden_kernel(controls_b, cases_b, "optimal", box_cox = FALSE))
@@ -312,4 +337,4 @@ ci_res <- get_confidence_interval(controls_209644N, cases_209644N)
 add_results(file_path, p_res, ci_res)
 
 # Write accumulated results to JSON file
-write_json(results_all, "results/simulations_all_kernel_for_all.json", pretty = TRUE, auto_unbox = TRUE)
+write_json(results_all, "results/simulations_all_kernel_for_all_v2.json", pretty = TRUE, auto_unbox = TRUE)
